@@ -1,7 +1,4 @@
-// Placeholder API service — replace fetch calls with real endpoints
-// once the Spring Boot backend is implemented.
-
-const BASE = '/api'
+const BASE = 'http://localhost:8080'
 
 async function request(method, path, body) {
   const res = await fetch(`${BASE}${path}`, {
@@ -9,8 +6,17 @@ async function request(method, path, body) {
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   })
-  if (!res.ok) throw new Error(`${method} ${path} → ${res.status}`)
-  return res.json()
+
+  const json = await res.json()
+
+  if (!res.ok) {
+    const err = new Error(json.message ?? `${method} ${path} → ${res.status}`)
+    err.status = res.status
+    err.data = json
+    throw err
+  }
+
+  return json
 }
 
 export const api = {

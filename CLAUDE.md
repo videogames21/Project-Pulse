@@ -11,10 +11,21 @@ Project Pulse is a full-stack web app that replaces manual Google Sheets WARs an
 | **Grayson** | Student managment and accounts (UC - 11, 12, 15, 16, 17, 25, 26, 30) |
 | **Lid** | WARs, Peer Evals, and Reports (UC - 13, 27, 28, 29, 31, 32, 33, 34) |
 
+## Source of Truth (READ FIRST)
+
+Before making design or implementation decisions, always review:
+
+1. `/requirements/vision_scope.md`
+2. `/requirements/use_cases.md`
+3. `/requirements/project_glossary.md`
+
+Do not invent features not supported by requirements unless clearly marked as enhancements.
+
 ## Tech Stack
-- **Frontend:** Vue.js + Vuetify — do NOT use ElementPlus
+- **Frontend:** Vue.js + Vite + Vuetify — do NOT use ElementPlus
 - **Backend:** Spring Boot 4.x (Java), REST API
 - **Database:** MySQL (or PostgreSQL)
+- **CI/CD:** GitHub Actions
 - **Deployment:** Microsoft Azure
 - **Auth:** JWT (role-based: ADMIN, INSTRUCTOR, STUDENT)
 
@@ -42,6 +53,24 @@ project-pulse/
 └── CLAUDE.md
 ```
 
+Use domain-oriented modules with internal layers.
+
+Each module should contain:
+
+- controller
+- service
+- repository
+- domain
+- dto
+
+Rules:
+
+- Organize by business/domain first
+- Keep business logic out of controllers
+- Keep persistence logic inside repositories
+- Minimize cross-module coupling
+- Do not introduce global layer folders (e.g., no top-level controller/)
+
 ## Common Commands
 ```bash
 # Backend
@@ -52,7 +81,7 @@ mvn clean package            # Build JAR for deployment
 
 # Frontend
 cd frontend
-npm run dev                  # Start dev server (port 5173)
+npm run dev                  # Start dev server (port 3000)
 npm run build                # Production build
 npm run lint                 # Lint check
 ```
