@@ -120,10 +120,10 @@ npm run lint                 # Lint check
 ## Git Workflow
 ```
 main        ← production-ready only, protected (PR required)
-feature/<name>/<short-desc>   ← personal feature branches
+feature/<name>/<short-desc>   ← personal feature branches, merge directly to main
 
 # Example
-git checkout dev
+git checkout main
 git checkout -b feature/harlemmariscal/auth-jwt
 # ... work ...
 ```

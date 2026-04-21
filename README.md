@@ -74,10 +74,6 @@ npm install
 npm run dev
 ```
 
-Opens at http://localhost:3000. The dev server proxies `/api` requests to `http://localhost:8080` for when the backend is running.
-
-The app currently runs in **demo mode** with mock data — select a role on the login screen to explore each view.
-
 ### Backend
 
 ```bash
