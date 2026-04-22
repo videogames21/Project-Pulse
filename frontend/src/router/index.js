@@ -14,7 +14,8 @@ import InvitationsView    from '../features/admin/InvitationsView.vue'
 
 const routes = [
   { path: '/',                  redirect: '/login' },
-  { path: '/login',             component: LoginView, meta: { public: true } },
+  { path: '/login',             component: LoginView,  meta: { public: true } },
+  { path: '/register/:token',   component: () => import('../features/auth/RegisterView.vue'), meta: { public: true } },
 
   // Student
   { path: '/war',               component: WARView,           meta: { role: 'student' } },
