@@ -9,6 +9,7 @@ import SectionReportView  from '../features/instructor/SectionReportView.vue'
 import TeamWARView        from '../features/instructor/TeamWARView.vue'
 import SectionsView       from '../features/admin/SectionsView.vue'
 import TeamsView          from '../features/admin/TeamsView.vue'
+import TeamDetailView     from '../features/admin/TeamDetailView.vue'
 import RubricsView        from '../features/admin/RubricsView.vue'
 import InvitationsView    from '../features/admin/InvitationsView.vue'
 
@@ -28,6 +29,7 @@ const routes = [
   // Admin
   { path: '/admin/sections',    component: SectionsView,      meta: { role: 'admin' } },
   { path: '/admin/teams',       component: TeamsView,         meta: { role: 'admin' } },
+  { path: '/admin/teams/:id',   component: TeamDetailView,    meta: { role: 'admin' } },
   { path: '/admin/rubrics',     component: RubricsView,       meta: { role: 'admin' } },
   { path: '/admin/invitations', component: InvitationsView,   meta: { role: 'admin' } },
 ]
