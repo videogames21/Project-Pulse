@@ -1,6 +1,7 @@
 spring:
   application:
     name: project-pulse
+<<<<<<< HEAD
 
   datasource:
     url: jdbc:h2:mem:projectpulsedb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
@@ -8,10 +9,18 @@ spring:
     username: sa
     password:
 
+=======
+  datasource:
+    url: jdbc:h2:mem:projectpulsedb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+>>>>>>> main
   h2:
     console:
       enabled: true
       path: /h2-console
+<<<<<<< HEAD
 
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
@@ -23,3 +32,14 @@ app:
   base-url: http://localhost:3000
   admin-email: admin@tcu.edu
   admin-name: Admin User
+=======
+  sql:
+    init:
+      mode: always
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    database-platform: org.hibernate.dialect.H2Dialect
+    defer-datasource-initialization: true
+>>>>>>> main
