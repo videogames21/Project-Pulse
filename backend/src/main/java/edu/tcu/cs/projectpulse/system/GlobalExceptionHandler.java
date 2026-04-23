@@ -4,6 +4,7 @@ import edu.tcu.cs.projectpulse.invitation.InvitationNotFoundException;
 import edu.tcu.cs.projectpulse.rubric.RubricNameConflictException;
 import edu.tcu.cs.projectpulse.rubric.RubricNotFoundException;
 import edu.tcu.cs.projectpulse.section.SectionNotFoundException;
+import edu.tcu.cs.projectpulse.team.TeamNameConflictException;
 import edu.tcu.cs.projectpulse.team.TeamNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.FieldError;
@@ -35,6 +36,12 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Result handleTeamNotFound(TeamNotFoundException ex) {
         return new Result(false, StatusCode.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(TeamNameConflictException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Result handleTeamNameConflict(TeamNameConflictException ex) {
+        return new Result(false, StatusCode.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler(SectionNotFoundException.class)
