@@ -5,8 +5,10 @@ import LoginView          from '../features/auth/LoginView.vue'
 import WARView            from '../features/war/WARView.vue'
 import PeerEvalView       from '../features/peer-eval/PeerEvalView.vue'
 import MyReportView       from '../features/report/MyReportView.vue'
-import SectionReportView  from '../features/instructor/SectionReportView.vue'
-import TeamWARView        from '../features/instructor/TeamWARView.vue'
+import SectionReportView           from '../features/instructor/SectionReportView.vue'
+import TeamWARView                 from '../features/instructor/TeamWARView.vue'
+import StudentPeerEvalReportView   from '../features/instructor/StudentPeerEvalReportView.vue'
+import StudentWARReportView        from '../features/instructor/StudentWARReportView.vue'
 import SectionsView       from '../features/admin/SectionsView.vue'
 import TeamsView          from '../features/admin/TeamsView.vue'
 import TeamDetailView     from '../features/admin/TeamDetailView.vue'
@@ -23,8 +25,10 @@ const routes = [
   { path: '/my-report',         component: MyReportView,      meta: { role: 'student' } },
 
   // Instructor
-  { path: '/section-report',    component: SectionReportView, meta: { role: 'instructor' } },
-  { path: '/team-war',          component: TeamWARView,        meta: { role: 'instructor' } },
+  { path: '/section-report',                          component: SectionReportView,         meta: { role: 'instructor' } },
+  { path: '/team-war',                                component: TeamWARView,               meta: { role: 'instructor' } },
+  { path: '/instructor/students/:id/peer-eval-report', component: StudentPeerEvalReportView, meta: { role: 'instructor' } },
+  { path: '/instructor/students/:id/war-report',       component: StudentWARReportView,      meta: { role: 'instructor' } },
 
   // Admin
   { path: '/admin/sections',    component: SectionsView,      meta: { role: 'admin' } },

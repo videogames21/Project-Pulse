@@ -15,6 +15,9 @@ public class RubricEntity {
     @Column(nullable = false, unique = true)
     private String name;
 
+    @Column(nullable = false)
+    private boolean active = false;
+
     @OneToMany(mappedBy = "rubric", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CriterionEntity> criteria = new ArrayList<>();
 
@@ -23,6 +26,9 @@ public class RubricEntity {
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+
+    public boolean isActive() { return active; }
+    public void setActive(boolean active) { this.active = active; }
 
     public List<CriterionEntity> getCriteria() { return criteria; }
     public void setCriteria(List<CriterionEntity> criteria) { this.criteria = criteria; }

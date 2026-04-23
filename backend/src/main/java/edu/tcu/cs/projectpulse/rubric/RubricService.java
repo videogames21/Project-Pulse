@@ -28,6 +28,12 @@ public class RubricService {
                 .orElseThrow(() -> new RubricNotFoundException(id));
     }
 
+    @Transactional(readOnly = true)
+    public RubricEntity findActive() {
+        return rubricRepository.findByActiveTrue()
+                .orElseThrow(() -> new RubricNotFoundException("No active rubric found. Activate one via PUT /api/v1/rubrics/{id}/activate"));
+    }
+
     public RubricEntity create(RubricRequest request) {
         if (rubricRepository.existsByName(request.name())) {
             throw new RubricNameConflictException(request.name());
@@ -35,15 +41,7 @@ public class RubricService {
 
         RubricEntity rubric = new RubricEntity();
         rubric.setName(request.name());
-
-        for (CriterionRequest cr : request.criteria()) {
-            CriterionEntity criterion = new CriterionEntity();
-            criterion.setName(cr.name());
-            criterion.setDescription(cr.description());
-            criterion.setMaxScore(cr.maxScore());
-            rubric.addCriterion(criterion);
-        }
-
+        applyRequest(rubric, request);
         return rubricRepository.save(rubric);
     }
 
@@ -57,15 +55,17 @@ public class RubricService {
 
         rubric.setName(request.name());
         rubric.getCriteria().clear();
+        applyRequest(rubric, request);
+        return rubricRepository.save(rubric);
+    }
 
-        for (CriterionRequest cr : request.criteria()) {
-            CriterionEntity criterion = new CriterionEntity();
-            criterion.setName(cr.name());
-            criterion.setDescription(cr.description());
-            criterion.setMaxScore(cr.maxScore());
-            rubric.addCriterion(criterion);
-        }
-
+    public RubricEntity activate(Long id) {
+        rubricRepository.findAll().forEach(r -> {
+            r.setActive(false);
+            rubricRepository.save(r);
+        });
+        RubricEntity rubric = findById(id);
+        rubric.setActive(true);
         return rubricRepository.save(rubric);
     }
 
@@ -73,5 +73,15 @@ public class RubricService {
         RubricEntity rubric = rubricRepository.findById(id)
                 .orElseThrow(() -> new RubricNotFoundException(id));
         rubricRepository.delete(rubric);
+    }
+
+    private void applyRequest(RubricEntity rubric, RubricRequest request) {
+        for (CriterionRequest cr : request.criteria()) {
+            CriterionEntity criterion = new CriterionEntity();
+            criterion.setName(cr.name());
+            criterion.setDescription(cr.description());
+            criterion.setMaxScore(cr.maxScore());
+            rubric.addCriterion(criterion);
+        }
     }
 }

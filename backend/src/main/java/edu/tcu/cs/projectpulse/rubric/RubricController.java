@@ -8,7 +8,6 @@ import edu.tcu.cs.projectpulse.system.StatusCode;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.bind.annotation.ResponseStatus;
 
 import java.util.List;
 
@@ -30,23 +29,30 @@ public class RubricController {
         return new Result(true, StatusCode.SUCCESS, "Rubrics retrieved successfully", rubrics);
     }
 
+    @GetMapping("/active")
+    public Result findActive() {
+        return new Result(true, StatusCode.SUCCESS, "Active rubric retrieved", toResponse(rubricService.findActive()));
+    }
+
     @GetMapping("/{id}")
     public Result findById(@PathVariable Long id) {
-        RubricResponse rubric = toResponse(rubricService.findById(id));
-        return new Result(true, StatusCode.SUCCESS, "Rubric retrieved successfully", rubric);
+        return new Result(true, StatusCode.SUCCESS, "Rubric retrieved successfully", toResponse(rubricService.findById(id)));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Result create(@Valid @RequestBody RubricRequest request) {
-        RubricResponse rubric = toResponse(rubricService.create(request));
-        return new Result(true, StatusCode.SUCCESS, "Rubric created successfully", rubric);
+        return new Result(true, StatusCode.SUCCESS, "Rubric created successfully", toResponse(rubricService.create(request)));
     }
 
     @PutMapping("/{id}")
     public Result update(@PathVariable Long id, @Valid @RequestBody RubricRequest request) {
-        RubricResponse rubric = toResponse(rubricService.update(id, request));
-        return new Result(true, StatusCode.SUCCESS, "Rubric updated successfully", rubric);
+        return new Result(true, StatusCode.SUCCESS, "Rubric updated successfully", toResponse(rubricService.update(id, request)));
+    }
+
+    @PutMapping("/{id}/activate")
+    public Result activate(@PathVariable Long id) {
+        return new Result(true, StatusCode.SUCCESS, "Rubric activated", toResponse(rubricService.activate(id)));
     }
 
     @DeleteMapping("/{id}")
@@ -59,6 +65,6 @@ public class RubricController {
         List<CriterionResponse> criteria = entity.getCriteria().stream()
                 .map(c -> new CriterionResponse(c.getId(), c.getName(), c.getDescription(), c.getMaxScore()))
                 .toList();
-        return new RubricResponse(entity.getId(), entity.getName(), criteria);
+        return new RubricResponse(entity.getId(), entity.getName(), entity.isActive(), criteria);
     }
 }
