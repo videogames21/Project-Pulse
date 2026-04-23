@@ -1,5 +1,6 @@
 package edu.tcu.cs.projectpulse.team;
 
+import edu.tcu.cs.projectpulse.notification.NotificationService;
 import edu.tcu.cs.projectpulse.user.UserEntity;
 import edu.tcu.cs.projectpulse.user.UserRepository;
 import org.springframework.data.domain.Sort;
@@ -7,6 +8,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -15,10 +17,13 @@ public class TeamService {
 
     private final TeamRepository teamRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
-    public TeamService(TeamRepository teamRepository, UserRepository userRepository) {
+    public TeamService(TeamRepository teamRepository, UserRepository userRepository,
+                       NotificationService notificationService) {
         this.teamRepository = teamRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     public TeamEntity findById(Long id) {
@@ -39,7 +44,10 @@ public class TeamService {
 
     public List<UserEntity> findMyTeamMembers(Long userId) {
         return teamRepository.findFirstByMembersId(userId)
-                .map(TeamEntity::getMembers)
+                .map(t -> t.getMembers().stream()
+                        .filter(m -> !m.getId().equals(userId))
+                        .sorted(Comparator.comparing(UserEntity::getLastName))
+                        .toList())
                 .orElse(List.of());
     }
 
@@ -49,5 +57,7 @@ public class TeamService {
                 .orElseThrow(() -> new RuntimeException("User not found with id " + userId));
         team.getMembers().remove(user);
         teamRepository.save(team);
+        notificationService.create(userId,
+                "You have been removed from team: " + team.getName());
     }
 }

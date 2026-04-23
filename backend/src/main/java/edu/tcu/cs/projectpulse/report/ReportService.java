@@ -57,7 +57,9 @@ public class ReportService {
     public List<SectionPeerEvalRow> getSectionPeerEvalReport(Integer week) {
         List<UserEntity> students = userRepo.findByRole("STUDENT");
 
-        return students.stream().map(student -> {
+        return students.stream()
+                .sorted(Comparator.comparing(UserEntity::getLastName))
+                .map(student -> {
             List<PeerEvaluationEntity> received = peerEvalRepo.findByEvaluateeIdAndWeek(student.getId(), week);
             boolean submitted = peerEvalRepo.existsByEvaluatorIdAndWeek(student.getId(), week);
 
@@ -83,7 +85,9 @@ public class ReportService {
         TeamEntity team = teamRepo.findById(teamId)
                 .orElseThrow(() -> new RuntimeException("Team not found with id " + teamId));
 
-        return team.getMembers().stream().map(member -> {
+        return team.getMembers().stream()
+                .sorted(Comparator.comparing(UserEntity::getLastName))
+                .map(member -> {
             List<WAREntryEntity> entries = warEntryRepo
                     .findByStudentIdAndWeekOrderByIdAsc(member.getId(), week);
 
