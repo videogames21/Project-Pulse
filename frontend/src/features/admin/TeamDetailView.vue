@@ -15,6 +15,11 @@ const saveError  = ref('')
 const deleting   = ref(false)
 const form       = ref({ name: '', description: '', websiteUrl: '', sectionName: '' })
 
+const showEditConfirm   = ref(false)
+const showDeleteConfirm = ref(false)
+const deletePassword    = ref('')
+const deleteError       = ref('')
+
 onMounted(async () => {
   try {
     const res = await api.get(`/api/v1/teams/${route.params.id}`)
@@ -35,26 +40,18 @@ function cancelEdit() {
   saveError.value = ''
 }
 
-async function deleteTeam() {
-  if (!confirm(`Delete "${team.value.name}"? This cannot be undone.`)) return
-  deleting.value = true
-  try {
-    await api.delete(`/api/v1/teams/${route.params.id}`)
-    router.push('/admin/teams')
-  } catch (e) {
-    error.value = e.message
-  } finally {
-    deleting.value = false
-  }
-}
-
-async function saveEdit() {
+function requestSave() {
   if (!form.value.name?.trim() || !form.value.sectionName?.trim()) {
     saveError.value = 'Name and section are required.'
     return
   }
-  saving.value = true
   saveError.value = ''
+  showEditConfirm.value = true
+}
+
+async function confirmSave() {
+  showEditConfirm.value = false
+  saving.value = true
   try {
     const res = await api.put(`/api/v1/teams/${route.params.id}`, form.value)
     team.value = res.data
@@ -63,6 +60,29 @@ async function saveEdit() {
     saveError.value = e.response?.data?.message ?? e.message
   } finally {
     saving.value = false
+  }
+}
+
+function openDeleteConfirm() {
+  deletePassword.value = ''
+  deleteError.value = ''
+  showDeleteConfirm.value = true
+}
+
+async function confirmDelete() {
+  if (deletePassword.value !== 'DELETE') {
+    deleteError.value = 'Type DELETE to confirm.'
+    return
+  }
+  showDeleteConfirm.value = false
+  deleting.value = true
+  try {
+    await api.delete(`/api/v1/teams/${route.params.id}`)
+    router.push('/admin/teams')
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    deleting.value = false
   }
 }
 </script>
@@ -85,7 +105,7 @@ async function saveEdit() {
           <span class="badge badge-purple">{{ team.sectionName }}</span>
           <div style="display:flex;gap:8px;margin-left:auto">
             <button class="btn btn-primary btn-sm" @click="startEdit">Edit</button>
-            <button class="btn btn-secondary btn-sm" style="color:#dc2626" :disabled="deleting" @click="deleteTeam">
+            <button class="btn btn-secondary btn-sm" style="color:#dc2626" :disabled="deleting" @click="openDeleteConfirm">
               {{ deleting ? 'Deleting…' : 'Delete' }}
             </button>
           </div>
@@ -133,12 +153,77 @@ async function saveEdit() {
         </div>
 
         <div style="display:flex;gap:8px;margin-top:16px">
-          <button class="btn btn-primary" :disabled="saving" @click="saveEdit">
+          <button class="btn btn-primary" :disabled="saving" @click="requestSave">
             {{ saving ? 'Saving…' : 'Save' }}
           </button>
           <button class="btn btn-secondary" :disabled="saving" @click="cancelEdit">Cancel</button>
         </div>
       </div>
     </template>
+
+    <!-- Edit Confirm Modal -->
+    <div v-if="showEditConfirm" class="overlay" @click.self="showEditConfirm = false">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>Confirm Changes</h3>
+          <button class="modal-close" @click="showEditConfirm = false">×</button>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure you want to save changes to <strong>{{ team.name }}</strong>?</p>
+          <ul style="margin-top:10px;padding-left:20px;color:var(--text-muted);font-size:0.9rem">
+            <li>The team name and section will be updated immediately.</li>
+            <li>Any linked data (WARs, evaluations) will remain unchanged.</li>
+          </ul>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-secondary" @click="showEditConfirm = false">Cancel</button>
+          <button class="btn btn-primary" @click="confirmSave">Confirm Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirm Modal -->
+    <div v-if="showDeleteConfirm" class="overlay" @click.self="showDeleteConfirm = false">
+      <div class="modal">
+        <div class="modal-head" style="border-bottom:2px solid #dc2626">
+          <h3 style="color:#dc2626">Delete Team</h3>
+          <button class="modal-close" @click="showDeleteConfirm = false">×</button>
+        </div>
+        <div class="modal-body">
+          <p>You are about to permanently delete <strong>{{ team?.name }}</strong>. Please read the following before proceeding:</p>
+
+          <ul style="margin:12px 0;padding-left:20px;font-size:0.9rem;line-height:1.8">
+            <li>All team progress and history will be <strong>permanently deleted</strong>.</li>
+            <li>WAR submissions associated with this team will be deleted.</li>
+            <li>Individual student accounts will <strong>not</strong> be deleted.</li>
+            <li>All assigned students will be <strong>unassigned</strong> and returned to the unassigned pool.</li>
+          </ul>
+
+          <p style="margin-top:12px;font-size:0.9rem;color:var(--text-muted)">
+            This action <strong>cannot be undone</strong>. Type <strong>DELETE</strong> below to confirm.
+          </p>
+
+          <div class="form-group" style="margin-top:12px;margin-bottom:0">
+            <input
+              v-model="deletePassword"
+              placeholder="Type DELETE to confirm"
+              style="border-color:#dc2626"
+              @keyup.enter="confirmDelete"
+            />
+            <p v-if="deleteError" style="color:#dc2626;font-size:0.85rem;margin-top:4px">{{ deleteError }}</p>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-secondary" @click="showDeleteConfirm = false">Cancel</button>
+          <button
+            class="btn"
+            style="background:#dc2626;color:#fff"
+            @click="confirmDelete"
+          >
+            Delete Team
+          </button>
+        </div>
+      </div>
+    </div>
   </AppLayout>
 </template>
