@@ -45,10 +45,6 @@ public class PeerEvaluationService {
                 .orElseThrow(() -> new RuntimeException("User not found with id " + evaluatorId));
 
         for (EvaluationEntryRequest entry : request.evaluations()) {
-            if (entry.evaluateeId().equals(evaluatorId)) {
-                throw new RuntimeException("Students cannot submit a peer evaluation for themselves.");
-            }
-
             UserEntity evaluatee = userRepository.findById(entry.evaluateeId())
                     .orElseThrow(() -> new RuntimeException("User not found with id " + entry.evaluateeId()));
 

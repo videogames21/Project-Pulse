@@ -45,7 +45,6 @@ public class TeamService {
     public List<UserEntity> findMyTeamMembers(Long userId) {
         return teamRepository.findFirstByMembersId(userId)
                 .map(t -> t.getMembers().stream()
-                        .filter(m -> !m.getId().equals(userId))
                         .sorted(Comparator.comparing(UserEntity::getLastName))
                         .toList())
                 .orElse(List.of());

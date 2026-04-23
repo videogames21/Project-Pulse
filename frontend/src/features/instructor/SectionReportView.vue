@@ -8,6 +8,17 @@ import { api } from '../../services/api.js'
 const MAX_WEEK = 5  // replace with active-week logic from backend
 const router = useRouter()
 
+const expandedComments = ref(new Set())
+function toggleComments(studentId) {
+  const next = new Set(expandedComments.value)
+  if (next.has(studentId)) {
+    next.delete(studentId)
+  } else {
+    next.add(studentId)
+  }
+  expandedComments.value = next
+}
+
 const selectedWeek = ref(1)
 const loading = ref(false)
 const error   = ref('')
@@ -108,28 +119,59 @@ watch(selectedWeek, fetchReport)
             </tr>
           </thead>
           <tbody>
-            <tr v-for="r in rows" :key="r.studentId" style="cursor:pointer" @click="router.push(`/instructor/students/${r.studentId}/peer-eval-report`)">
-              <td><strong>{{ studentName(r) }}</strong></td>
-              <td><span :class="['badge', r.submitted ? 'badge-green' : 'badge-orange']">{{ r.submitted ? 'Yes' : 'No' }}</span></td>
-              <td>{{ r.submitted ? `${r.totalScore}/${r.maxScore}` : '—' }}</td>
-              <td>
-                <template v-if="r.submitted && pct(r) !== null">
-                  <div class="flex items-center gap-2">
-                    <div class="progress-wrap" style="flex:1;min-width:80px">
-                      <div class="progress-bar" :style="`width:${pct(r)}%;background:${barColor(pct(r))}`" />
+            <template v-for="r in rows" :key="r.studentId">
+              <!-- Main student row -->
+              <tr>
+                <td><strong>{{ studentName(r) }}</strong></td>
+                <td><span :class="['badge', r.submitted ? 'badge-green' : 'badge-orange']">{{ r.submitted ? 'Yes' : 'No' }}</span></td>
+                <td>{{ r.submitted ? `${r.totalScore}/${r.maxScore}` : '—' }}</td>
+                <td>
+                  <template v-if="r.submitted && pct(r) !== null">
+                    <div class="flex items-center gap-2">
+                      <div class="progress-wrap" style="flex:1;min-width:80px">
+                        <div class="progress-bar" :style="`width:${pct(r)}%;background:${barColor(pct(r))}`" />
+                      </div>
+                      <span style="font-size:.8rem;font-weight:600">{{ pct(r) }}%</span>
                     </div>
-                    <span style="font-size:.8rem;font-weight:600">{{ pct(r) }}%</span>
+                  </template>
+                  <template v-else>—</template>
+                </td>
+                <td>{{ r.evaluationsReceived ?? '—' }}/{{ (r.teamSize ?? 1) - 1 }} teammates</td>
+                <td>
+                  <div class="flex gap-2">
+                    <button
+                      v-if="r.comments && r.comments.length"
+                      class="btn btn-secondary btn-sm"
+                      @click="toggleComments(r.studentId)"
+                    >
+                      {{ expandedComments.has(r.studentId) ? 'Hide Comments' : `Comments (${r.comments.length})` }}
+                    </button>
+                    <button class="btn btn-secondary btn-sm" @click="router.push(`/instructor/students/${r.studentId}/peer-eval-report`)">
+                      View Report
+                    </button>
                   </div>
-                </template>
-                <template v-else>—</template>
-              </td>
-              <td>{{ r.evaluationsReceived ?? '—' }}/{{ (r.teamSize ?? 1) - 1 }} teammates</td>
-              <td>
-                <button class="btn btn-secondary btn-sm" @click.stop="router.push(`/instructor/students/${r.studentId}/peer-eval-report`)">
-                  View Report
-                </button>
-              </td>
-            </tr>
+                </td>
+              </tr>
+              <!-- Expandable comments sub-rows -->
+              <template v-if="expandedComments.has(r.studentId) && r.comments?.length">
+                <tr
+                  v-for="(c, i) in r.comments"
+                  :key="i"
+                  style="background:var(--surface-2,#f8fafc)"
+                >
+                  <td style="padding-left:28px;font-size:.8rem;color:var(--muted)">{{ c.evaluatorName }}</td>
+                  <td colspan="2" style="font-size:.8rem">
+                    <span v-if="c.publicComment" style="color:var(--text)">{{ c.publicComment }}</span>
+                    <span v-else class="muted">—</span>
+                  </td>
+                  <td colspan="3" style="font-size:.8rem;background:rgba(77,25,121,.04)">
+                    <span style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-right:4px">Private:</span>
+                    <span v-if="c.privateComment">{{ c.privateComment }}</span>
+                    <span v-else class="muted">—</span>
+                  </td>
+                </tr>
+              </template>
+            </template>
           </tbody>
         </table>
       </div>

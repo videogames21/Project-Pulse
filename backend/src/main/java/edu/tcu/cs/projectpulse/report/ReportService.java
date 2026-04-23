@@ -73,9 +73,16 @@ public class ReportService {
             int teamSize = teamRepo.findFirstByMembersId(student.getId())
                     .map(t -> t.getMembers().size()).orElse(1);
 
+            List<SectionEvalComment> comments = received.stream()
+                    .map(e -> new SectionEvalComment(
+                            e.getEvaluator().getFirstName() + " " + e.getEvaluator().getLastName(),
+                            e.getPublicComment(),
+                            e.getPrivateComment()))
+                    .toList();
+
             return new SectionPeerEvalRow(
                     student.getId(), student.getFirstName(), student.getLastName(),
-                    submitted, totalScore, maxScore, received.size(), teamSize
+                    submitted, totalScore, maxScore, received.size(), teamSize, comments
             );
         }).toList();
     }
@@ -98,9 +105,15 @@ public class ReportService {
                     .map(WAREntryEntity::getActualHours)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+            List<ActivityDetail> activities = entries.stream()
+                    .map(e -> new ActivityDetail(
+                            e.getId(), e.getCategory(), e.getDescription(),
+                            e.getPlannedHours(), e.getActualHours(), e.getStatus()))
+                    .toList();
+
             return new TeamWARRow(
                     member.getId(), member.getFirstName(), member.getLastName(),
-                    entries.size(), planned, actual
+                    entries.size(), planned, actual, activities
             );
         }).toList();
     }

@@ -18,8 +18,11 @@ const rows         = ref([])
 const availableWeeks = computed(() => Array.from({ length: MAX_WEEK }, (_, i) => i + 1))
 
 const submitted    = computed(() => rows.value.filter(r => r.activityCount > 0))
+const nonSubmitters = computed(() => rows.value.filter(r => r.activityCount === 0))
 const totalPlanned = computed(() => rows.value.reduce((s, r) => s + Number(r.plannedHours ?? 0), 0))
 const totalActual  = computed(() => rows.value.reduce((s, r) => s + Number(r.actualHours  ?? 0), 0))
+
+const STATUS_CLS = { 'Done': 'badge-green', 'In Progress': 'badge-orange', 'Under Testing': 'badge-blue' }
 
 function studentName(r) {
   return r.firstName && r.lastName ? `${r.firstName} ${r.lastName}` : r.studentName ?? '—'
@@ -94,53 +97,57 @@ watch([selectedTeam, selectedWeek], fetchReport)
       </div>
     </div>
 
+    <div v-if="nonSubmitters.length" class="alert alert-warning" style="margin-bottom:16px">
+      <strong>Missing submissions:</strong>
+      {{ nonSubmitters.map(r => studentName(r)).join(', ') }} did not submit a WAR for Week {{ selectedWeek }}.
+    </div>
+
     <div v-if="loading" class="empty"><p>Loading report…</p></div>
 
     <div v-else-if="rows.length === 0 && !error" class="empty">
       <p>No WAR data for this team and week.</p>
     </div>
 
-    <div v-else class="card" style="padding:0;overflow:hidden">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Student</th>
-              <th>Activities</th>
-              <th>Planned (h)</th>
-              <th>Actual (h)</th>
-              <th>Variance</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="r in rows"
-              :key="r.studentId"
-              style="cursor:pointer"
-              @click="router.push(`/instructor/students/${r.studentId}/war-report`)"
-            >
-              <td><strong>{{ studentName(r) }}</strong></td>
-              <td>{{ r.activityCount ?? 0 }}</td>
-              <td>{{ r.plannedHours ?? 0 }}h</td>
-              <td>{{ r.actualHours ?? 0 }}h</td>
-              <td>
-                <span
-                  style="font-weight:600"
-                  :style="`color:${(r.actualHours - r.plannedHours) > 0 ? 'var(--red)' : (r.actualHours - r.plannedHours) < 0 ? 'var(--blue)' : 'var(--green)'}`"
-                >
-                  {{ (r.actualHours - r.plannedHours) > 0 ? '+' : '' }}{{ (r.actualHours ?? 0) - (r.plannedHours ?? 0) }}h
-                </span>
-              </td>
-              <td>
-                <button class="btn btn-secondary btn-sm" @click.stop="router.push(`/instructor/students/${r.studentId}/war-report`)">
-                  View Report
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+    <template v-else>
+      <div v-for="r in rows" :key="r.studentId" class="card mb-4" style="margin-bottom:20px">
+        <div class="card-header">
+          <div class="flex items-center gap-2">
+            <h3>{{ studentName(r) }}</h3>
+            <span v-if="r.activityCount === 0" class="badge badge-orange">No WAR submitted</span>
+          </div>
+          <div class="flex gap-2">
+            <span class="badge badge-purple">{{ r.plannedHours ?? 0 }}h planned</span>
+            <span class="badge badge-green">{{ r.actualHours ?? 0 }}h actual</span>
+            <button class="btn btn-secondary btn-sm" @click="router.push(`/instructor/students/${r.studentId}/war-report`)">
+              Full Report
+            </button>
+          </div>
+        </div>
+
+        <div v-if="r.activities && r.activities.length" class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Description</th>
+                <th>Planned (h)</th>
+                <th>Actual (h)</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="a in r.activities" :key="a.id">
+                <td><span class="badge badge-purple">{{ a.category }}</span></td>
+                <td>{{ a.description }}</td>
+                <td>{{ a.plannedHours }}</td>
+                <td>{{ a.actualHours }}</td>
+                <td><span :class="['badge', STATUS_CLS[a.status] ?? 'badge-gray']">{{ a.status }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-else class="muted" style="font-size:.875rem;padding:8px 0">No activities reported this week.</div>
       </div>
-    </div>
+    </template>
   </AppLayout>
 </template>

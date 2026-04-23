@@ -1,5 +1,7 @@
 package edu.tcu.cs.projectpulse.report.dto;
 
+import java.util.List;
+
 public record SectionPeerEvalRow(
         Long studentId,
         String firstName,
@@ -8,5 +10,6 @@ public record SectionPeerEvalRow(
         double totalScore,
         double maxScore,
         int evaluationsReceived,
-        int teamSize
+        int teamSize,
+        List<SectionEvalComment> comments
 ) {}
