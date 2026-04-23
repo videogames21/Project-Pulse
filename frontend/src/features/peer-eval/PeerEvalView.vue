@@ -123,6 +123,15 @@ const memberName = (m) => `${m.firstName} ${m.lastName}`
     <!-- Error -->
     <div v-else-if="error" class="alert alert-error">{{ error }}</div>
 
+    <!-- Not on a team -->
+    <div v-else-if="teammates.length === 0" class="empty">
+      <div class="empty-icon">👥</div>
+      <h3>No team assigned</h3>
+      <p class="muted" style="margin-top:10px">
+        You are not currently on a team. Peer evaluations will be available once you have been added to a team.
+      </p>
+    </div>
+
     <!-- Already submitted (BR-3) -->
     <div v-else-if="alreadySubmitted" class="empty">
       <div class="empty-icon">🔒</div>
