@@ -5,6 +5,7 @@ import edu.tcu.cs.projectpulse.system.StatusCode;
 import edu.tcu.cs.projectpulse.team.dto.TeamRequest;
 import edu.tcu.cs.projectpulse.team.dto.TeamResponse;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,6 +18,13 @@ public class TeamController {
 
     public TeamController(TeamService teamService) {
         this.teamService = teamService;
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public Result create(@Valid @RequestBody TeamRequest request) {
+        TeamResponse response = toResponse(teamService.create(request));
+        return new Result(true, StatusCode.SUCCESS, "Team created successfully", response);
     }
 
     @GetMapping("/{id}")
@@ -34,12 +42,6 @@ public class TeamController {
                 .map(this::toResponse)
                 .toList();
         return new Result(true, StatusCode.SUCCESS, "Teams retrieved successfully", teams);
-    }
-
-    @PostMapping
-    public Result create(@Valid @RequestBody TeamRequest request) {
-        TeamResponse response = toResponse(teamService.create(request));
-        return new Result(true, StatusCode.SUCCESS, "Team created successfully", response);
     }
 
     @PutMapping("/{id}")

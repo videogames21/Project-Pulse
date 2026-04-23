@@ -119,14 +119,14 @@ class TeamControllerIntegrationTest {
     // ── POST /api/v1/teams ───────────────────────────────────────────────────
 
     @Test
-    void create_validPayload_returns200AndPersists() throws Exception {
+    void create_validPayload_returns201AndPersists() throws Exception {
         var body = Map.of("name", "New Team", "sectionName", "CS4910",
                 "description", "A description", "websiteUrl", "http://example.com");
 
         mockMvc.perform(post("/api/v1/teams")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.name").value("New Team"))
                 .andExpect(jsonPath("$.data.sectionName").value("CS4910"))
