@@ -5,6 +5,7 @@ import edu.tcu.cs.projectpulse.rubric.RubricNameConflictException;
 import edu.tcu.cs.projectpulse.rubric.RubricNotFoundException;
 import edu.tcu.cs.projectpulse.section.SectionNotFoundException;
 import edu.tcu.cs.projectpulse.team.TeamNotFoundException;
+import edu.tcu.cs.projectpulse.user.UserNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -46,6 +47,18 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Result handleInvitationNotFound(InvitationNotFoundException ex) {
         return new Result(false, StatusCode.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Result handleUserNotFound(UserNotFoundException ex) {
+        return new Result(false, StatusCode.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Result handleIllegalState(IllegalStateException ex) {
+        return new Result(false, StatusCode.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

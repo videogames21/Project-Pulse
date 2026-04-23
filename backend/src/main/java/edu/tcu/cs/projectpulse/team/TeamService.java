@@ -1,8 +1,12 @@
 package edu.tcu.cs.projectpulse.team;
 
+import edu.tcu.cs.projectpulse.user.UserEntity;
+import edu.tcu.cs.projectpulse.user.UserNotFoundException;
+import edu.tcu.cs.projectpulse.user.UserRepository;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -10,9 +14,11 @@ import java.util.List;
 public class TeamService {
 
     private final TeamRepository teamRepository;
+    private final UserRepository userRepository;
 
-    public TeamService(TeamRepository teamRepository) {
+    public TeamService(TeamRepository teamRepository, UserRepository userRepository) {
         this.teamRepository = teamRepository;
+        this.userRepository = userRepository;
     }
 
     public TeamEntity findById(Long id) {
@@ -27,5 +33,44 @@ public class TeamService {
 
         Sort sort = Sort.by(Sort.Order.desc("sectionName"), Sort.Order.asc("name"));
         return teamRepository.findAll(spec, sort);
+    }
+
+    public List<UserEntity> findStudentsByTeamId(Long teamId) {
+        return userRepository.findByTeamId(teamId);
+    }
+
+    @Transactional
+    public void assignStudents(Long teamId, List<Long> studentIds) {
+        TeamEntity team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new TeamNotFoundException(teamId));
+
+        for (Long studentId : studentIds) {
+            UserEntity student = userRepository.findById(studentId)
+                    .orElseThrow(() -> new UserNotFoundException(studentId));
+
+            if (student.getTeamId() != null) {
+                throw new IllegalStateException(
+                        "Student " + student.getName() + " is already assigned to a team. Remove them first.");
+            }
+
+            student.setTeamId(team.getId());
+            userRepository.save(student);
+        }
+    }
+
+    @Transactional
+    public void removeStudent(Long teamId, Long studentId) {
+        teamRepository.findById(teamId)
+                .orElseThrow(() -> new TeamNotFoundException(teamId));
+
+        UserEntity student = userRepository.findById(studentId)
+                .orElseThrow(() -> new UserNotFoundException(studentId));
+
+        if (!teamId.equals(student.getTeamId())) {
+            throw new IllegalStateException("Student is not a member of this team.");
+        }
+
+        student.setTeamId(null);
+        userRepository.save(student);
     }
 }
