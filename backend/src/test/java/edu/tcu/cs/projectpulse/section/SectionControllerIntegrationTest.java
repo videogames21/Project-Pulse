@@ -1,19 +1,23 @@
 package edu.tcu.cs.projectpulse.section;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.tcu.cs.projectpulse.team.TeamEntity;
 import edu.tcu.cs.projectpulse.team.TeamRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.time.LocalDate;
+import java.util.Map;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -29,6 +33,8 @@ class SectionControllerIntegrationTest {
     TeamRepository teamRepository;
 
     MockMvc mockMvc;
+
+    ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
@@ -277,5 +283,58 @@ class SectionControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/sections/{id}", "abc"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    // ── UC-9 + UC-3 cross-module integration ──────────────────────────────────
+
+    @Test
+    void findSectionById_teamCreatedViaApi_appearsInSectionDetail() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        var body = Map.of("name", "Team Omega", "sectionName", "2025-2026",
+                "description", "API-created team", "websiteUrl", "");
+        mockMvc.perform(post("/api/v1/teams")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams", hasSize(1)))
+                .andExpect(jsonPath("$.data.teams[0].name").value("Team Omega"))
+                .andExpect(jsonPath("$.data.teams[0].id").isNumber());
+    }
+
+    @Test
+    void findSections_teamCreatedViaApi_appearsInSectionList() throws Exception {
+        createSection("2025-2026");
+
+        var body = Map.of("name", "Team Delta", "sectionName", "2025-2026",
+                "description", "API-created team", "websiteUrl", "");
+        mockMvc.perform(post("/api/v1/teams")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/sections"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].teamNames", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].teamNames[0]").value("Team Delta"));
+    }
+
+    @Test
+    void findSectionById_teamCreatedViaApiWithWrongSectionName_notIncluded() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        var body = Map.of("name", "Team Outsider", "sectionName", "9999-9999",
+                "description", "Wrong section", "websiteUrl", "");
+        mockMvc.perform(post("/api/v1/teams")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams", hasSize(0)));
     }
 }
