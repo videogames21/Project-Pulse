@@ -1,0 +1,25 @@
+package edu.tcu.cs.projectpulse.section;
+
+import edu.tcu.cs.projectpulse.section.dto.SectionResponse;
+import edu.tcu.cs.projectpulse.system.Result;
+import edu.tcu.cs.projectpulse.system.StatusCode;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1/sections")
+public class SectionController {
+
+    private final SectionService sectionService;
+
+    public SectionController(SectionService sectionService) {
+        this.sectionService = sectionService;
+    }
+
+    @GetMapping
+    public Result findAll(@RequestParam(required = false) String name) {
+        List<SectionResponse> sections = sectionService.findAll(name);
+        return new Result(true, StatusCode.SUCCESS, "Sections retrieved successfully", sections);
+    }
+}
