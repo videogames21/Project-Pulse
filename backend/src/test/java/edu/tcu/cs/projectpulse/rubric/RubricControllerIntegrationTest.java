@@ -26,8 +26,7 @@ class RubricControllerIntegrationTest {
     @Autowired
     RubricRepository rubricRepository;
 
-    @Autowired
-    ObjectMapper objectMapper;
+    ObjectMapper objectMapper = new ObjectMapper();
 
     MockMvc mockMvc;
 
