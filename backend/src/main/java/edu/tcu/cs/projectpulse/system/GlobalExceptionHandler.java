@@ -1,5 +1,6 @@
 package edu.tcu.cs.projectpulse.system;
 
+import edu.tcu.cs.projectpulse.invitation.InvitationNotFoundException;
 import edu.tcu.cs.projectpulse.rubric.RubricNameConflictException;
 import edu.tcu.cs.projectpulse.rubric.RubricNotFoundException;
 import edu.tcu.cs.projectpulse.team.TeamNotFoundException;
@@ -31,6 +32,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(TeamNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Result handleTeamNotFound(TeamNotFoundException ex) {
+        return new Result(false, StatusCode.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvitationNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Result handleInvitationNotFound(InvitationNotFoundException ex) {
         return new Result(false, StatusCode.NOT_FOUND, ex.getMessage());
     }
 
