@@ -1,61 +1,72 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import AppLayout from '../../components/AppLayout.vue'
-import { MOCK_SECTIONS } from '../../data/mockData'
+import { sectionsApi } from '../../api/sections.js'
 
-const sections  = ref([...MOCK_SECTIONS])
-const showModal = ref(false)
-const form      = ref({ name: '', startDate: '', endDate: '' })
-const flash     = ref('')
+const sections = ref([])
+const search   = ref('')
+const loading  = ref(false)
+const error    = ref('')
 
-function create() {
-  if (!form.value.name.trim()) return
-  const id = Math.max(0, ...sections.value.map(s => s.id)) + 1
-  sections.value.push({ id, ...form.value, rubricId: 1 })
-  form.value = { name: '', startDate: '', endDate: '' }
-  showModal.value = false
-  flash.value = 'Section created.'; setTimeout(() => flash.value = '', 3000)
+async function fetchSections() {
+  loading.value = true
+  error.value   = ''
+  try {
+    const res    = await sectionsApi.getAll(search.value.trim() || undefined)
+    sections.value = res.data
+  } catch {
+    error.value = 'Failed to load sections.'
+  } finally {
+    loading.value = false
+  }
 }
+
+onMounted(fetchSections)
 </script>
 
 <template>
   <AppLayout>
-    <div v-if="flash" class="alert alert-success">{{ flash }}</div>
-
     <div class="flex justify-between items-center mb-4">
       <p class="muted">Manage Senior Design sections (one per academic year).</p>
-      <button class="btn btn-primary" @click="showModal = true">+ New Section</button>
     </div>
 
-    <div class="card" style="padding:0;overflow:hidden">
+    <div class="flex gap-2 mb-4">
+      <input
+        v-model="search"
+        placeholder="Search by section name…"
+        style="flex:1"
+        @keyup.enter="fetchSections"
+      />
+      <button class="btn btn-primary" @click="fetchSections">Search</button>
+    </div>
+
+    <div v-if="error" class="alert alert-error">{{ error }}</div>
+
+    <div v-if="loading" class="muted">Loading…</div>
+
+    <div v-else-if="sections.length === 0 && !error" class="card" style="padding: 1.5rem; text-align:center;">
+      <p class="muted">No sections found.</p>
+    </div>
+
+    <div v-else class="card" style="padding:0; overflow:hidden">
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Section Name</th><th>Start Date</th><th>End Date</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Section Name</th>
+              <th>Teams</th>
+            </tr>
+          </thead>
           <tbody>
-            <tr v-for="s in sections" :key="s.id">
-              <td><strong>{{ s.name }}</strong></td>
-              <td>{{ s.startDate }}</td>
-              <td>{{ s.endDate }}</td>
+            <tr v-for="s in sections" :key="s.sectionName">
+              <td><strong>{{ s.sectionName }}</strong></td>
+              <td>
+                <span v-if="s.teamNames.length === 0" class="muted">No teams</span>
+                <span v-else>{{ s.teamNames.join(', ') }}</span>
+              </td>
             </tr>
           </tbody>
         </table>
-      </div>
-    </div>
-
-    <div v-if="showModal" class="overlay" @click.self="showModal = false">
-      <div class="modal">
-        <div class="modal-head"><h3>Create Section</h3><button class="modal-close" @click="showModal = false">×</button></div>
-        <div class="modal-body">
-          <div class="form-group"><label>Section Name (YYYY-YYYY)</label><input v-model="form.name" placeholder="e.g. 2025-2026" /></div>
-          <div class="grid-2">
-            <div class="form-group"><label>Start Date</label><input type="date" v-model="form.startDate" /></div>
-            <div class="form-group"><label>End Date</label><input type="date" v-model="form.endDate" /></div>
-          </div>
-        </div>
-        <div class="modal-foot">
-          <button class="btn btn-secondary" @click="showModal = false">Cancel</button>
-          <button class="btn btn-primary" @click="create">Create</button>
-        </div>
       </div>
     </div>
   </AppLayout>
