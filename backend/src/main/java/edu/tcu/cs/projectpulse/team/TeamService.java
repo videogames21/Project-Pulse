@@ -1,5 +1,6 @@
 package edu.tcu.cs.projectpulse.team;
 
+import edu.tcu.cs.projectpulse.team.dto.TeamRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,18 @@ public class TeamService {
     public TeamEntity findById(Long id) {
         return teamRepository.findById(id)
                 .orElseThrow(() -> new TeamNotFoundException(id));
+    }
+
+    public TeamEntity create(TeamRequest request) {
+        if (teamRepository.existsByName(request.name())) {
+            throw new TeamNameConflictException(request.name());
+        }
+        TeamEntity team = new TeamEntity();
+        team.setName(request.name());
+        team.setDescription(request.description());
+        team.setWebsiteUrl(request.websiteUrl());
+        team.setSectionName(request.sectionName());
+        return teamRepository.save(team);
     }
 
     public List<TeamEntity> findAll(String sectionName, String teamName) {
