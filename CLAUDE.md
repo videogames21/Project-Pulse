@@ -15,9 +15,11 @@ Project Pulse is a full-stack web app that replaces manual Google Sheets WARs an
 
 Before making design or implementation decisions, always review:
 
-1. `/requirements/vision_scope.md`
-2. `/requirements/use_cases.md`
-3. `/requirements/project_glossary.md`
+1. `/requirements/2 Vision and Scope.md`
+2. `/requirements/3 Use Cases.md`
+3. `/requirements/1 Project Glossary.md`
+4. `/requirements/project_pulse.md` — full course spec including technical and deployment requirements
+5. `/docs/database-design.md` — database conventions and production migration checklist
 
 Do not invent features not supported by requirements unless clearly marked as enhancements.
 
