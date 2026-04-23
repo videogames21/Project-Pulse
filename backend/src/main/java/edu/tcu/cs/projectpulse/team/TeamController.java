@@ -2,7 +2,9 @@ package edu.tcu.cs.projectpulse.team;
 
 import edu.tcu.cs.projectpulse.system.Result;
 import edu.tcu.cs.projectpulse.system.StatusCode;
+import edu.tcu.cs.projectpulse.team.dto.TeamRequest;
 import edu.tcu.cs.projectpulse.team.dto.TeamResponse;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,6 +34,18 @@ public class TeamController {
                 .map(this::toResponse)
                 .toList();
         return new Result(true, StatusCode.SUCCESS, "Teams retrieved successfully", teams);
+    }
+
+    @PostMapping
+    public Result create(@Valid @RequestBody TeamRequest request) {
+        TeamResponse response = toResponse(teamService.create(request));
+        return new Result(true, StatusCode.SUCCESS, "Team created successfully", response);
+    }
+
+    @PutMapping("/{id}")
+    public Result update(@PathVariable Long id, @Valid @RequestBody TeamRequest request) {
+        TeamResponse response = toResponse(teamService.update(id, request));
+        return new Result(true, StatusCode.SUCCESS, "Team updated successfully", response);
     }
 
     private TeamResponse toResponse(TeamEntity entity) {
