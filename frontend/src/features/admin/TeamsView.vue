@@ -8,8 +8,13 @@ const router  = useRouter()
 const teams   = ref([])
 const loading = ref(false)
 const error   = ref('')
+const flash   = ref('')
 const filterName    = ref('')
 const filterSection = ref('')
+const showModal = ref(false)
+const saving    = ref(false)
+const formError = ref('')
+const form = ref({ name: '', description: '', websiteUrl: '', sectionName: '' })
 
 async function fetchTeams() {
   loading.value = true
@@ -34,15 +39,39 @@ function clearFilters() {
   fetchTeams()
 }
 
+function openModal() {
+  form.value      = { name: '', description: '', websiteUrl: '', sectionName: '' }
+  formError.value = ''
+  showModal.value = true
+}
+
+async function create() {
+  formError.value = ''
+  saving.value    = true
+  try {
+    await api.post('/api/v1/teams', form.value)
+    showModal.value = false
+    flash.value = 'Team created successfully.'
+    setTimeout(() => flash.value = '', 3000)
+    fetchTeams()
+  } catch (e) {
+    formError.value = e.message
+  } finally {
+    saving.value = false
+  }
+}
+
 onMounted(fetchTeams)
 </script>
 
 <template>
   <AppLayout>
+    <div v-if="flash" class="alert alert-success">{{ flash }}</div>
     <div v-if="error" class="alert alert-error">{{ error }}</div>
 
     <div class="flex justify-between items-center mb-4">
       <p class="muted">Create and manage Senior Design project teams.</p>
+      <button class="btn btn-primary" @click="openModal">+ New Team</button>
     </div>
 
     <!-- Filters -->
@@ -97,6 +126,41 @@ onMounted(fetchTeams)
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Create Modal -->
+    <div v-if="showModal" class="overlay" @click.self="showModal = false">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>Create Team</h3>
+          <button class="modal-close" @click="showModal = false">×</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="formError" class="alert alert-error">{{ formError }}</div>
+          <div class="form-group">
+            <label>Team Name *</label>
+            <input v-model="form.name" placeholder="e.g. Team Delta" />
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea v-model="form.description" placeholder="Brief project description" />
+          </div>
+          <div class="form-group">
+            <label>Website URL</label>
+            <input v-model="form.websiteUrl" placeholder="https://" />
+          </div>
+          <div class="form-group">
+            <label>Section Name *</label>
+            <input v-model="form.sectionName" placeholder="e.g. CS4910" />
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-secondary" @click="showModal = false">Cancel</button>
+          <button class="btn btn-primary" @click="create" :disabled="saving">
+            {{ saving ? 'Creating...' : 'Create' }}
+          </button>
+        </div>
       </div>
     </div>
   </AppLayout>
