@@ -60,6 +60,16 @@ public class TeamService {
         return teamRepository.findAll(spec, sort);
     }
 
+    @Transactional
+    public void delete(Long id) {
+        TeamEntity team = findById(id);
+        userRepository.findByTeamId(id).forEach(u -> {
+            u.setTeamId(null);
+            userRepository.save(u);
+        });
+        teamRepository.delete(team);
+    }
+
     public List<UserEntity> findStudentsByTeamId(Long teamId) {
         return userRepository.findByTeamId(teamId);
     }

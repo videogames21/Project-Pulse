@@ -12,6 +12,7 @@ const error  = ref('')
 const editing    = ref(false)
 const saving     = ref(false)
 const saveError  = ref('')
+const deleting   = ref(false)
 const form       = ref({ name: '', description: '', websiteUrl: '', sectionName: '' })
 
 onMounted(async () => {
@@ -32,6 +33,19 @@ function startEdit() {
 function cancelEdit() {
   editing.value = false
   saveError.value = ''
+}
+
+async function deleteTeam() {
+  if (!confirm(`Delete "${team.value.name}"? This cannot be undone.`)) return
+  deleting.value = true
+  try {
+    await api.delete(`/api/v1/teams/${route.params.id}`)
+    router.push('/admin/teams')
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    deleting.value = false
+  }
 }
 
 async function saveEdit() {
@@ -69,7 +83,12 @@ async function saveEdit() {
         <div class="card-header">
           <h2 style="font-size:1.1rem;font-weight:700">{{ team.name }}</h2>
           <span class="badge badge-purple">{{ team.sectionName }}</span>
-          <button class="btn btn-primary btn-sm" style="margin-left:auto" @click="startEdit">Edit</button>
+          <div style="display:flex;gap:8px;margin-left:auto">
+            <button class="btn btn-primary btn-sm" @click="startEdit">Edit</button>
+            <button class="btn btn-secondary btn-sm" style="color:#dc2626" :disabled="deleting" @click="deleteTeam">
+              {{ deleting ? 'Deleting…' : 'Delete' }}
+            </button>
+          </div>
         </div>
 
         <div class="grid-2" style="gap:18px">

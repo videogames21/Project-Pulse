@@ -52,6 +52,12 @@ public class TeamController {
         return new Result(true, StatusCode.SUCCESS, "Team updated successfully", response);
     }
 
+    @DeleteMapping("/{id}")
+    public Result delete(@PathVariable Long id) {
+        teamService.delete(id);
+        return new Result(true, StatusCode.SUCCESS, "Team deleted successfully");
+    }
+
     @PostMapping("/{id}/students")
     public Result assignStudents(@PathVariable Long id,
                                  @Valid @RequestBody AssignStudentsRequest request) {
