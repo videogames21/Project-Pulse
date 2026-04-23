@@ -8,8 +8,6 @@ public class Result {
     private String error;
     private int code;
 
-    
-
     public boolean isSuccess() { return success; }
     public void setSuccess(boolean success) { this.success = success; }
 
@@ -22,19 +20,24 @@ public class Result {
     public String getError() { return error; }
     public void setError(String error) { this.error = error; }
 
+    public int getCode() { return code; }
+    public void setCode(int code) { this.code = code; }
+
+    public Result(boolean success, int code, String message) {
+        this(success, code, message, null);
+    }
+
     public Result(boolean success, int code, String message, Object data) {
         this.success = success;
         this.code = code;
         this.message = message;
         this.data = data;
     }
-  
+
     public Result(boolean success, Object data, String message, String error) {
         this.success = success;
         this.data = data;
         this.message = message;
         this.error = error;
     }
-
-  
 }

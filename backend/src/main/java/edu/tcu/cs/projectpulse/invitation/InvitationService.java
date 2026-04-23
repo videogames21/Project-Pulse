@@ -3,6 +3,7 @@ package edu.tcu.cs.projectpulse.invitation;
 import edu.tcu.cs.projectpulse.invitation.dto.InvitationResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -11,6 +12,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional
 public class InvitationService {
 
     private final InvitationRepository repository;
@@ -32,10 +34,11 @@ public class InvitationService {
         entity.setStatus(InvitationStatus.PENDING);
         entity.setCreatedAt(LocalDateTime.now());
         entity.setInvitedBy(adminEmail);
-        repository.save(entity);
+        entity = repository.save(entity);
         return toResponse(entity, true);
     }
 
+    @Transactional(readOnly = true)
     public List<InvitationResponse> findAll() {
         return repository.findAllByOrderByCreatedAtDesc()
                 .stream()
@@ -43,9 +46,10 @@ public class InvitationService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public InvitationResponse findByToken(String token) {
         InvitationEntity entity = repository.findByToken(token)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired invitation token."));
+                .orElseThrow(() -> new InvitationNotFoundException(token));
         return toResponse(entity, false);
     }
 
