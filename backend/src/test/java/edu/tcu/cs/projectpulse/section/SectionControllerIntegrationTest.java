@@ -3,6 +3,9 @@ package edu.tcu.cs.projectpulse.section;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.tcu.cs.projectpulse.team.TeamEntity;
 import edu.tcu.cs.projectpulse.team.TeamRepository;
+import edu.tcu.cs.projectpulse.user.UserEntity;
+import edu.tcu.cs.projectpulse.user.UserRepository;
+import edu.tcu.cs.projectpulse.user.UserRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +16,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.*;
@@ -32,6 +36,9 @@ class SectionControllerIntegrationTest {
     @Autowired
     TeamRepository teamRepository;
 
+    @Autowired
+    UserRepository userRepository;
+
     MockMvc mockMvc;
 
     ObjectMapper objectMapper = new ObjectMapper();
@@ -39,6 +46,7 @@ class SectionControllerIntegrationTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
+        userRepository.deleteAll();
         teamRepository.deleteAll();
         sectionRepository.deleteAll();
     }
@@ -58,6 +66,21 @@ class SectionControllerIntegrationTest {
         t.setName(teamName);
         t.setSectionName(sectionName);
         teamRepository.save(t);
+    }
+
+    private Long createTeamAndReturnId(String teamName, String sectionName) {
+        TeamEntity t = new TeamEntity();
+        t.setName(teamName);
+        t.setSectionName(sectionName);
+        return teamRepository.save(t).getId();
+    }
+
+    private Long createStudent(String name, String email) {
+        UserEntity u = new UserEntity();
+        u.setName(name);
+        u.setEmail(email);
+        u.setRole(UserRole.STUDENT);
+        return userRepository.save(u).getId();
     }
 
     // ── GET /api/v1/sections (no filter) ─────────────────────────────────────
@@ -258,7 +281,7 @@ class SectionControllerIntegrationTest {
     }
 
     @Test
-    void findSectionById_stubFieldsAreEmptyArraysNotNull() throws Exception {
+    void findSectionById_noUsers_studentsNotOnTeamIsEmptyArray() throws Exception {
         SectionEntity saved = createSection("2025-2026");
 
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
@@ -336,5 +359,93 @@ class SectionControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.teams", hasSize(0)));
+    }
+
+    // ── UC-3 + UC-12 cross-module: studentsNotOnTeam ─────────────────────────
+
+    @Test
+    void findSectionById_unassignedStudents_appearsInStudentsNotOnTeam() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        createStudent("Alice Chen", "alice@tcu.edu");
+        createStudent("Bob Smith",  "bob@tcu.edu");
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(2)))
+                .andExpect(jsonPath("$.data.studentsNotOnTeam",
+                        containsInAnyOrder("Alice Chen", "Bob Smith")));
+    }
+
+    @Test
+    void findSectionById_studentsNotOnTeamSortedAlphabetically() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        createStudent("Zoe Adams",  "zoe@tcu.edu");
+        createStudent("Alice Chen", "alice@tcu.edu");
+        createStudent("Mike Wong",  "mike@tcu.edu");
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(3)))
+                .andExpect(jsonPath("$.data.studentsNotOnTeam[0]").value("Alice Chen"))
+                .andExpect(jsonPath("$.data.studentsNotOnTeam[1]").value("Mike Wong"))
+                .andExpect(jsonPath("$.data.studentsNotOnTeam[2]").value("Zoe Adams"));
+    }
+
+    @Test
+    void findSectionById_assignedStudentNotInStudentsNotOnTeam() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        Long teamId  = createTeamAndReturnId("Team Alpha", "2025-2026");
+        Long aliceId = createStudent("Alice Chen", "alice@tcu.edu");
+        createStudent("Bob Smith", "bob@tcu.edu");
+
+        // Assign Alice via the UC-12 endpoint
+        mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("studentIds", List.of(aliceId)))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(1)))
+                .andExpect(jsonPath("$.data.studentsNotOnTeam[0]").value("Bob Smith"));
+    }
+
+    @Test
+    void findSectionById_allStudentsAssigned_studentsNotOnTeamIsEmpty() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        Long teamId  = createTeamAndReturnId("Team Alpha", "2025-2026");
+        Long aliceId = createStudent("Alice Chen", "alice@tcu.edu");
+        Long bobId   = createStudent("Bob Smith",  "bob@tcu.edu");
+
+        mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("studentIds", List.of(aliceId, bobId)))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(0)));
+    }
+
+    @Test
+    void findSectionById_removedStudentReturnsToStudentsNotOnTeam() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        Long teamId  = createTeamAndReturnId("Team Alpha", "2025-2026");
+        Long aliceId = createStudent("Alice Chen", "alice@tcu.edu");
+
+        mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("studentIds", List.of(aliceId)))))
+                .andExpect(status().isOk());
+
+        // Remove Alice from the team via the UC-12 endpoint
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/v1/teams/" + teamId + "/students/" + aliceId))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(1)))
+                .andExpect(jsonPath("$.data.studentsNotOnTeam[0]").value("Alice Chen"));
     }
 }

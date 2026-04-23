@@ -4,6 +4,9 @@ import edu.tcu.cs.projectpulse.section.dto.SectionDetailResponse;
 import edu.tcu.cs.projectpulse.section.dto.SectionResponse;
 import edu.tcu.cs.projectpulse.team.TeamEntity;
 import edu.tcu.cs.projectpulse.team.TeamRepository;
+import edu.tcu.cs.projectpulse.user.UserEntity;
+import edu.tcu.cs.projectpulse.user.UserRepository;
+import edu.tcu.cs.projectpulse.user.UserRole;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -15,10 +18,13 @@ public class SectionService {
 
     private final SectionRepository sectionRepository;
     private final TeamRepository teamRepository;
+    private final UserRepository userRepository;
 
-    public SectionService(SectionRepository sectionRepository, TeamRepository teamRepository) {
+    public SectionService(SectionRepository sectionRepository, TeamRepository teamRepository,
+                          UserRepository userRepository) {
         this.sectionRepository = sectionRepository;
         this.teamRepository = teamRepository;
+        this.userRepository = userRepository;
     }
 
     public List<SectionResponse> findAll(String name) {
@@ -54,6 +60,13 @@ public class SectionService {
                 .map(t -> new SectionDetailResponse.TeamSummary(t.getId(), t.getName()))
                 .toList();
 
+        List<String> studentsNotOnTeam = userRepository
+                .findByRoleAndTeamIdIsNull(UserRole.STUDENT)
+                .stream()
+                .map(UserEntity::getName)
+                .sorted()
+                .toList();
+
         return new SectionDetailResponse(
                 section.getId(),
                 section.getName(),
@@ -61,7 +74,7 @@ public class SectionService {
                 section.getEndDate(),
                 teams,
                 List.of(),
-                List.of(),
+                studentsNotOnTeam,
                 null
         );
     }
