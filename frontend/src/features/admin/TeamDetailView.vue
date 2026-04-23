@@ -22,7 +22,7 @@ onMounted(async () => {
 <template>
   <AppLayout>
     <div class="flex items-center gap-2 mb-4" style="margin-bottom:16px">
-      <button class="btn btn-secondary btn-sm" @click="router.push('/admin/teams')">← Back</button>
+      <button class="btn btn-secondary btn-sm" @click="router.back()">← Back</button>
     </div>
 
     <div v-if="error" class="alert alert-error">{{ error }}</div>

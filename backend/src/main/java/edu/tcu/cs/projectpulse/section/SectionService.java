@@ -1,6 +1,8 @@
 package edu.tcu.cs.projectpulse.section;
 
+import edu.tcu.cs.projectpulse.section.dto.SectionDetailResponse;
 import edu.tcu.cs.projectpulse.section.dto.SectionResponse;
+import edu.tcu.cs.projectpulse.team.TeamEntity;
 import edu.tcu.cs.projectpulse.team.TeamRepository;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -29,15 +31,38 @@ public class SectionService {
                     List<String> teamNames = teamRepository
                             .findAllBySectionNameOrderByNameAsc(section.getName())
                             .stream()
-                            .map(t -> t.getName())
+                            .map(TeamEntity::getName)
                             .toList();
-                    return new SectionResponse(section.getName(), teamNames);
+                    return new SectionResponse(
+                            section.getId(),
+                            section.getName(),
+                            section.getStartDate(),
+                            section.getEndDate(),
+                            teamNames
+                    );
                 })
                 .toList();
     }
 
-    public SectionEntity findById(Long id) {
-        return sectionRepository.findById(id)
+    public SectionDetailResponse findSectionById(Long id) {
+        SectionEntity section = sectionRepository.findById(id)
                 .orElseThrow(() -> new SectionNotFoundException(id));
+
+        List<SectionDetailResponse.TeamSummary> teams = teamRepository
+                .findAllBySectionNameOrderByNameAsc(section.getName())
+                .stream()
+                .map(t -> new SectionDetailResponse.TeamSummary(t.getId(), t.getName()))
+                .toList();
+
+        return new SectionDetailResponse(
+                section.getId(),
+                section.getName(),
+                section.getStartDate(),
+                section.getEndDate(),
+                teams,
+                List.of(),
+                List.of(),
+                null
+        );
     }
 }

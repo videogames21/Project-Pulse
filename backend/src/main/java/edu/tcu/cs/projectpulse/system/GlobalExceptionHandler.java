@@ -11,6 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -46,6 +47,13 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Result handleInvitationNotFound(InvitationNotFoundException ex) {
         return new Result(false, StatusCode.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Result handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return new Result(false, StatusCode.INVALID_ARGUMENT,
+                "Invalid value '" + ex.getValue() + "' for parameter '" + ex.getName() + "'");
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

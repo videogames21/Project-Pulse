@@ -1,7 +1,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import AppLayout from '../../components/AppLayout.vue'
 import { sectionsApi } from '../../api/sections.js'
+
+const router = useRouter()
 
 const sections = ref([])
 const search   = ref('')
@@ -54,12 +57,21 @@ onMounted(fetchSections)
           <thead>
             <tr>
               <th>Section Name</th>
+              <th>Start Date</th>
+              <th>End Date</th>
               <th>Teams</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="s in sections" :key="s.sectionName">
+            <tr
+              v-for="s in sections"
+              :key="s.id"
+              style="cursor:pointer"
+              @click="router.push(`/admin/sections/${s.id}`)"
+            >
               <td><strong>{{ s.sectionName }}</strong></td>
+              <td>{{ s.startDate ?? '—' }}</td>
+              <td>{{ s.endDate ?? '—' }}</td>
               <td>
                 <span v-if="s.teamNames.length === 0" class="muted">No teams</span>
                 <span v-else>{{ s.teamNames.join(', ') }}</span>

@@ -155,4 +155,127 @@ class SectionControllerIntegrationTest {
                 .andExpect(jsonPath("$.data[0].sectionName").value("2025-2026"))
                 .andExpect(jsonPath("$.data[0].teamNames", contains("Team A")));
     }
+
+    // ── GET /api/v1/sections (list enrichment) ────────────────────────────────
+
+    @Test
+    void findSections_listIncludesIdStartDateEndDate() throws Exception {
+        createSection("2025-2026");
+
+        mockMvc.perform(get("/api/v1/sections"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").isNumber())
+                .andExpect(jsonPath("$.data[0].startDate").value("2025-08-25"))
+                .andExpect(jsonPath("$.data[0].endDate").value("2026-05-10"));
+    }
+
+    // ── GET /api/v1/sections/{id} ─────────────────────────────────────────────
+
+    @Test
+    void findSectionById_exists_returnsDetail() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(saved.getId()))
+                .andExpect(jsonPath("$.data.sectionName").value("2025-2026"))
+                .andExpect(jsonPath("$.data.startDate").value("2025-08-25"))
+                .andExpect(jsonPath("$.data.endDate").value("2026-05-10"));
+    }
+
+    @Test
+    void findSectionById_notFound_returns404() throws Exception {
+        mockMvc.perform(get("/api/v1/sections/{id}", 9999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void findSectionById_noTeams_returnsEmptyTeamsList() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams", hasSize(0)));
+    }
+
+    @Test
+    void findSectionById_withTeams_returnsTeamsSortedAscending() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        createTeam("Team Zeta", "2025-2026");
+        createTeam("Team Alpha", "2025-2026");
+        createTeam("Team Beta", "2025-2026");
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams", hasSize(3)))
+                .andExpect(jsonPath("$.data.teams[0].name").value("Team Alpha"))
+                .andExpect(jsonPath("$.data.teams[1].name").value("Team Beta"))
+                .andExpect(jsonPath("$.data.teams[2].name").value("Team Zeta"));
+    }
+
+    @Test
+    void findSectionById_teamSummaryIncludesId() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        createTeam("Team Alpha", "2025-2026");
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams[0].id").isNumber())
+                .andExpect(jsonPath("$.data.teams[0].name").value("Team Alpha"));
+    }
+
+    @Test
+    void findSectionById_teamsFromOtherSectionNotIncluded() throws Exception {
+        SectionEntity target = createSection("2025-2026");
+        createSection("2024-2025");
+        createTeam("Team A", "2025-2026");
+        createTeam("Team B", "2024-2025");
+
+        mockMvc.perform(get("/api/v1/sections/{id}", target.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams", hasSize(1)))
+                .andExpect(jsonPath("$.data.teams[0].name").value("Team A"));
+    }
+
+    @Test
+    void findSectionById_nullDates_returnsNullStartAndEndDate() throws Exception {
+        SectionEntity s = new SectionEntity();
+        s.setName("2025-2026");
+        SectionEntity saved = sectionRepository.save(s);
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.startDate").doesNotExist())
+                .andExpect(jsonPath("$.data.endDate").doesNotExist());
+    }
+
+    @Test
+    void findSectionById_stubFieldsAreEmptyArraysNotNull() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam").isArray())
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam", hasSize(0)))
+                .andExpect(jsonPath("$.data.studentsNotOnTeam").isArray())
+                .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(0)));
+    }
+
+    @Test
+    void findSectionById_rubricNameFieldPresentAndNull() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rubricName").doesNotExist());
+    }
+
+    @Test
+    void findSectionById_invalidIdFormat_returns400() throws Exception {
+        mockMvc.perform(get("/api/v1/sections/{id}", "abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
 }

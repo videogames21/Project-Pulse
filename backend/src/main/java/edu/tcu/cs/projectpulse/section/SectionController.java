@@ -1,5 +1,6 @@
 package edu.tcu.cs.projectpulse.section;
 
+import edu.tcu.cs.projectpulse.section.dto.SectionDetailResponse;
 import edu.tcu.cs.projectpulse.section.dto.SectionResponse;
 import edu.tcu.cs.projectpulse.system.Result;
 import edu.tcu.cs.projectpulse.system.StatusCode;
@@ -21,5 +22,11 @@ public class SectionController {
     public Result findAll(@RequestParam(required = false) String name) {
         List<SectionResponse> sections = sectionService.findAll(name);
         return new Result(true, StatusCode.SUCCESS, "Sections retrieved successfully", sections);
+    }
+
+    @GetMapping("/{id}")
+    public Result findById(@PathVariable Long id) {
+        SectionDetailResponse section = sectionService.findSectionById(id);
+        return new Result(true, StatusCode.SUCCESS, "Section retrieved successfully", section);
     }
 }
