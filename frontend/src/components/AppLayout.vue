@@ -22,7 +22,8 @@ const NAV = {
     { path: '/admin/sections',    label: 'Sections',    icon: '🏛️' },
     { path: '/admin/teams',       label: 'Teams',       icon: '👥' },
     { path: '/admin/rubrics',     label: 'Rubrics',     icon: '📝' },
-    { path: '/admin/invitations', label: 'Invitations', icon: '✉️' },
+    { path: '/admin/invitations',      label: 'Invitations',      icon: '✉️' },
+    { path: '/admin/assign-students', label: 'Assign Students',  icon: '🎓' },
   ],
 }
 
