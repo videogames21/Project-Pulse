@@ -1,5 +1,7 @@
 package edu.tcu.cs.projectpulse.system;
 
+import edu.tcu.cs.projectpulse.auth.EmailAlreadyRegisteredException;
+import edu.tcu.cs.projectpulse.invitation.InvitationDisabledException;
 import edu.tcu.cs.projectpulse.invitation.InvitationNotFoundException;
 import edu.tcu.cs.projectpulse.rubric.RubricNameConflictException;
 import edu.tcu.cs.projectpulse.rubric.RubricNotFoundException;
@@ -8,6 +10,7 @@ import edu.tcu.cs.projectpulse.team.TeamNameConflictException;
 import edu.tcu.cs.projectpulse.team.TeamNotFoundException;
 import edu.tcu.cs.projectpulse.user.UserNotFoundException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -56,6 +59,12 @@ public class GlobalExceptionHandler {
         return new Result(false, StatusCode.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(InvitationDisabledException.class)
+    @ResponseStatus(HttpStatus.GONE)
+    public Result handleInvitationDisabled(InvitationDisabledException ex) {
+        return new Result(false, StatusCode.GONE, ex.getMessage());
+    }
+
     @ExceptionHandler(UserNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Result handleUserNotFound(UserNotFoundException ex) {
@@ -76,6 +85,18 @@ public class GlobalExceptionHandler {
             errors.put(fe.getField(), fe.getDefaultMessage());
         }
         return new Result(false, StatusCode.INVALID_ARGUMENT, "Validation failed", errors);
+    }
+
+    @ExceptionHandler(EmailAlreadyRegisteredException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Result handleEmailAlreadyRegistered(EmailAlreadyRegisteredException ex) {
+        return new Result(false, StatusCode.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public Result handleBadCredentials(BadCredentialsException ex) {
+        return new Result(false, StatusCode.UNAUTHORIZED, "Invalid email or password.");
     }
 
     @ExceptionHandler(Exception.class)

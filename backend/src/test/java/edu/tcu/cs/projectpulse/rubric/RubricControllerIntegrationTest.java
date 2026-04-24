@@ -1,6 +1,7 @@
 package edu.tcu.cs.projectpulse.rubric;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.tcu.cs.projectpulse.TestJwtHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,25 +15,25 @@ import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.*;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 class RubricControllerIntegrationTest {
 
-    @Autowired
-    WebApplicationContext wac;
-
-    @Autowired
-    RubricRepository rubricRepository;
+    @Autowired WebApplicationContext wac;
+    @Autowired RubricRepository rubricRepository;
+    @Autowired TestJwtHelper jwtHelper;
 
     ObjectMapper objectMapper = new ObjectMapper();
-
     MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
+        mockMvc = MockMvcBuilders.webAppContextSetup(wac)
+                .apply(springSecurity())
+                .build();
         rubricRepository.deleteAll();
     }
 
@@ -50,7 +51,8 @@ class RubricControllerIntegrationTest {
         var payload = rubricPayload(name, List.of(criterion("Quality", "Desc", 10)));
         String response = mockMvc.perform(post("/api/v1/rubrics")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(payload)))
+                        .content(objectMapper.writeValueAsString(payload))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(response).path("data").path("id").longValue();
     }
@@ -58,8 +60,15 @@ class RubricControllerIntegrationTest {
     // ── GET /api/v1/rubrics ─────────────────────────────────────────────────
 
     @Test
-    void getAllRubrics_emptyList_returns200WithEmptyData() throws Exception {
+    void getAllRubrics_withoutJwt_returns403() throws Exception {
         mockMvc.perform(get("/api/v1/rubrics"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getAllRubrics_emptyList_returns200WithEmptyData() throws Exception {
+        mockMvc.perform(get("/api/v1/rubrics")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data", hasSize(0)));
@@ -70,7 +79,8 @@ class RubricControllerIntegrationTest {
         createRubric("Rubric A");
         createRubric("Rubric B");
 
-        mockMvc.perform(get("/api/v1/rubrics"))
+        mockMvc.perform(get("/api/v1/rubrics")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(2)))
                 .andExpect(jsonPath("$.data[*].name", containsInAnyOrder("Rubric A", "Rubric B")));
@@ -82,7 +92,8 @@ class RubricControllerIntegrationTest {
     void getRubricById_found_returns200WithDetails() throws Exception {
         Long id = createRubric("Peer Eval Rubric");
 
-        mockMvc.perform(get("/api/v1/rubrics/" + id))
+        mockMvc.perform(get("/api/v1/rubrics/" + id)
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.name").value("Peer Eval Rubric"))
@@ -92,7 +103,8 @@ class RubricControllerIntegrationTest {
 
     @Test
     void getRubricById_notFound_returns404() throws Exception {
-        mockMvc.perform(get("/api/v1/rubrics/9999"))
+        mockMvc.perform(get("/api/v1/rubrics/9999")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -108,7 +120,8 @@ class RubricControllerIntegrationTest {
 
         mockMvc.perform(post("/api/v1/rubrics")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(payload)))
+                        .content(objectMapper.writeValueAsString(payload))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.name").value("New Rubric"))
@@ -124,7 +137,8 @@ class RubricControllerIntegrationTest {
 
         mockMvc.perform(post("/api/v1/rubrics")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(payload)))
+                        .content(objectMapper.writeValueAsString(payload))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -135,7 +149,8 @@ class RubricControllerIntegrationTest {
 
         mockMvc.perform(post("/api/v1/rubrics")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(payload)))
+                        .content(objectMapper.writeValueAsString(payload))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -146,7 +161,8 @@ class RubricControllerIntegrationTest {
 
         mockMvc.perform(post("/api/v1/rubrics")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(payload)))
+                        .content(objectMapper.writeValueAsString(payload))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -157,7 +173,8 @@ class RubricControllerIntegrationTest {
 
         mockMvc.perform(post("/api/v1/rubrics")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(payload)))
+                        .content(objectMapper.writeValueAsString(payload))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -168,7 +185,8 @@ class RubricControllerIntegrationTest {
 
         mockMvc.perform(post("/api/v1/rubrics")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(payload)))
+                        .content(objectMapper.writeValueAsString(payload))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -179,7 +197,8 @@ class RubricControllerIntegrationTest {
 
         mockMvc.perform(post("/api/v1/rubrics")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(payload)))
+                        .content(objectMapper.writeValueAsString(payload))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.criteria[0].maxScore").value(9.5));
     }
@@ -196,7 +215,8 @@ class RubricControllerIntegrationTest {
 
         mockMvc.perform(put("/api/v1/rubrics/" + id)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updated)))
+                        .content(objectMapper.writeValueAsString(updated))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.name").value("New Name"))
@@ -212,7 +232,8 @@ class RubricControllerIntegrationTest {
 
         mockMvc.perform(put("/api/v1/rubrics/" + id)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(payload)))
+                        .content(objectMapper.writeValueAsString(payload))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.name").value("Same Name"));
     }
@@ -226,7 +247,8 @@ class RubricControllerIntegrationTest {
 
         mockMvc.perform(put("/api/v1/rubrics/" + id)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(payload)))
+                        .content(objectMapper.writeValueAsString(payload))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -237,7 +259,8 @@ class RubricControllerIntegrationTest {
 
         mockMvc.perform(put("/api/v1/rubrics/9999")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(payload)))
+                        .content(objectMapper.writeValueAsString(payload))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -248,17 +271,20 @@ class RubricControllerIntegrationTest {
     void deleteRubric_exists_returns200AndRemovesFromDb() throws Exception {
         Long id = createRubric("To Be Deleted");
 
-        mockMvc.perform(delete("/api/v1/rubrics/" + id))
+        mockMvc.perform(delete("/api/v1/rubrics/" + id)
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        mockMvc.perform(get("/api/v1/rubrics/" + id))
+        mockMvc.perform(get("/api/v1/rubrics/" + id)
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     void deleteRubric_notFound_returns404() throws Exception {
-        mockMvc.perform(delete("/api/v1/rubrics/9999"))
+        mockMvc.perform(delete("/api/v1/rubrics/9999")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false));
     }

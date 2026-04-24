@@ -1,51 +1,148 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { invitationsApi } from '../../api/invitations.js'
+import { useAuthStore } from '../../stores/auth'
 
 const route      = useRoute()
-const loading    = ref(true)
+const router     = useRouter()
+const auth       = useAuthStore()
+
+const loading     = ref(true)
 const validInvite = ref(false)
-const inviteData = ref(null)
+const linkDisabled = ref(false)
+const inviteData  = ref(null)
+
+const form        = ref({ firstName: '', lastName: '', email: '', password: '' })
+const fieldErrors = ref({})
+const submitError = ref(null)
+const submitting  = ref(false)
 
 onMounted(async () => {
   try {
     const res = await invitationsApi.validateToken(route.params.token)
-    inviteData.value = res.data
-    validInvite.value = true
-  } catch {
-    validInvite.value = false
+    if (res.data?.status === 'DISABLED') {
+      linkDisabled.value = true
+    } else {
+      inviteData.value = res.data
+      validInvite.value = true
+    }
+  } catch (e) {
+    if (e.status === 404) {
+      router.push('/login?linkNotFound=true')
+    }
   } finally {
     loading.value = false
   }
 })
+
+async function submit() {
+  submitError.value = null
+  fieldErrors.value = {}
+  submitting.value = true
+  try {
+    await auth.register({ ...form.value, token: route.params.token })
+    router.push('/login?registered=true')
+  } catch (e) {
+    if (e.status === 400 && e.data?.data) {
+      fieldErrors.value = e.data.data
+    } else if (e.status === 410) {
+      submitError.value = e.message
+    } else {
+      submitError.value = e.message || 'Registration failed.'
+    }
+  } finally {
+    submitting.value = false
+  }
+}
 </script>
 
 <template>
-  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)">
-    <div class="card" style="max-width:460px;width:100%;padding:32px">
+  <div class="reg-page">
+    <div class="reg-panel">
+      <div class="login-logo">P</div>
+      <h1 class="reg-title">Project Pulse</h1>
 
-      <div v-if="loading" style="text-align:center;color:var(--text-muted)">
+      <div v-if="loading" style="text-align:center;color:#6b6480;padding:24px 0">
         Validating invitation link…
       </div>
 
       <div v-else-if="validInvite">
-        <h2 style="margin:0 0 8px 0">Welcome to Project Pulse</h2>
-        <p class="muted" style="margin:0 0 16px 0">You've been invited to join as a student.</p>
-        <div class="alert alert-info">
-          Account setup is coming soon. Check back after your admin notifies you.
+        <p class="reg-sub">Create your account to get started.</p>
+
+        <div v-if="submitError" class="alert alert-warning" style="margin-bottom:14px">
+          {{ submitError }}
         </div>
-        <RouterLink to="/login" style="display:inline-block;margin-top:16px">Return to Login</RouterLink>
+
+        <form @submit.prevent="submit">
+          <div class="row-fields">
+            <div class="field">
+              <label class="field-label">First Name</label>
+              <input v-model="form.firstName" type="text" class="field-input" :class="{ error: fieldErrors.firstName }" placeholder="Alice" required />
+              <span v-if="fieldErrors.firstName" class="field-error">{{ fieldErrors.firstName }}</span>
+            </div>
+            <div class="field">
+              <label class="field-label">Last Name</label>
+              <input v-model="form.lastName" type="text" class="field-input" :class="{ error: fieldErrors.lastName }" placeholder="Chen" required />
+              <span v-if="fieldErrors.lastName" class="field-error">{{ fieldErrors.lastName }}</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field-label">Email</label>
+            <input v-model="form.email" type="email" class="field-input" :class="{ error: fieldErrors.email }" placeholder="you@tcu.edu" required autocomplete="email" />
+            <span v-if="fieldErrors.email" class="field-error">{{ fieldErrors.email }}</span>
+          </div>
+
+          <div class="field">
+            <label class="field-label">Password <span class="muted-label">(min 8 characters)</span></label>
+            <input v-model="form.password" type="password" class="field-input" :class="{ error: fieldErrors.password }" required autocomplete="new-password" />
+            <span v-if="fieldErrors.password" class="field-error">{{ fieldErrors.password }}</span>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;font-size:.95rem;margin-top:4px" :disabled="submitting">
+            {{ submitting ? 'Creating account…' : 'Create Account' }}
+          </button>
+        </form>
+
+        <p style="text-align:center;margin-top:16px;font-size:.82rem">
+          Already have an account? <RouterLink to="/login">Sign in</RouterLink>
+        </p>
+      </div>
+
+      <div v-else-if="linkDisabled">
+        <h2 style="margin:0 0 16px 0;color:#4D1979">Invitation Link Disabled</h2>
+        <div class="alert alert-disabled" style="margin-bottom:16px">
+          This invitation link has been disabled by an administrator. Please contact your admin for a new link.
+        </div>
+        <RouterLink to="/login" style="display:inline-block;margin-top:4px">Return to Login</RouterLink>
       </div>
 
       <div v-else>
-        <h2 style="margin:0 0 16px 0">Invalid Invitation</h2>
+        <h2 style="margin:0 0 16px 0;color:#c62828">Invalid Invitation</h2>
         <div class="alert alert-warning">
-          This invitation link is invalid or has expired. Please contact your admin.
+          This invitation link is not valid. Please contact your admin for a new link.
         </div>
         <RouterLink to="/login" style="display:inline-block;margin-top:16px">Return to Login</RouterLink>
       </div>
-
     </div>
   </div>
 </template>
+
+<style scoped>
+.reg-page   { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #3a1159, #4D1979 55%, #6b2ba0); padding: 20px; }
+.reg-panel  { background: #fff; border-radius: 14px; padding: 36px; width: 100%; max-width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+.login-logo { display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; background: #4D1979; color: #fff; border-radius: 12px; font-size: 1.5rem; font-weight: 800; margin-bottom: 10px; }
+.reg-title  { font-size: 1.7rem; font-weight: 800; color: #4D1979; margin: 0 0 4px 0; }
+.reg-sub    { color: #6b6480; font-size: .85rem; margin: 0 0 20px 0; }
+.row-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field      { margin-bottom: 14px; }
+.field-label  { display: block; font-size: .82rem; font-weight: 600; color: #4a4060; margin-bottom: 5px; }
+.muted-label  { font-weight: 400; color: #9e9aaa; }
+.field-input  { width: 100%; padding: 9px 12px; border: 1.5px solid #d8d3e3; border-radius: 8px; font-size: .9rem; box-sizing: border-box; outline: none; transition: border-color .15s; }
+.field-input:focus { border-color: #4D1979; }
+.field-input.error { border-color: #c62828; }
+.field-error  { font-size: .75rem; color: #c62828; margin-top: 3px; display: block; }
+.alert-warning  { background: #fff3e0; border: 1px solid #ffcc80; color: #e65100; border-radius: 8px; padding: 10px 14px; font-size: .85rem; }
+.alert-disabled { background: #f3e8ff; border: 1px solid #c084fc; color: #7c3aed; border-radius: 8px; padding: 10px 14px; font-size: .85rem; }
+</style>

@@ -18,6 +18,8 @@ public class SectionEntity {
 
     private LocalDate endDate;
 
+    private Long instructorId;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -29,4 +31,7 @@ public class SectionEntity {
 
     public LocalDate getEndDate() { return endDate; }
     public void setEndDate(LocalDate endDate) { this.endDate = endDate; }
+
+    public Long getInstructorId() { return instructorId; }
+    public void setInstructorId(Long instructorId) { this.instructorId = instructorId; }
 }

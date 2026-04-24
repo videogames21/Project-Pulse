@@ -23,6 +23,15 @@ public class UserEntity {
     // Soft FK to teams.id — nullable means unassigned
     private Long teamId;
 
+    @Column(nullable = true)
+    private String password;
+
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private boolean enabled = true;
+
+    @Column(nullable = true)
+    private String invitationToken;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -37,4 +46,13 @@ public class UserEntity {
 
     public Long getTeamId() { return teamId; }
     public void setTeamId(Long teamId) { this.teamId = teamId; }
+
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+    public String getInvitationToken() { return invitationToken; }
+    public void setInvitationToken(String invitationToken) { this.invitationToken = invitationToken; }
 }

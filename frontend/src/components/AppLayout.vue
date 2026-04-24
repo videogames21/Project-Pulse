@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { defaultRoute } from '../router/index'
@@ -7,6 +7,18 @@ import { defaultRoute } from '../router/index'
 const auth   = useAuthStore()
 const router = useRouter()
 const route  = useRoute()
+
+const menuOpen = ref(false)
+
+function toggleMenu() { menuOpen.value = !menuOpen.value }
+function closeMenu()  { menuOpen.value = false }
+
+function handleOutsideClick(e) {
+  if (!e.target.closest('.sidebar-footer')) closeMenu()
+}
+
+onMounted(()  => document.addEventListener('click', handleOutsideClick))
+onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 
 const NAV = {
   student: [
@@ -64,12 +76,17 @@ function logout() {
         </RouterLink>
       </nav>
 
-      <div class="sidebar-footer">
-        <div class="user-name">{{ auth.user?.name }}</div>
-        <div class="user-role">{{ auth.user?.role }}</div>
-        <button class="btn btn-sm" style="width:100%;justify-content:center;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2)" @click="logout">
-          Sign Out
-        </button>
+      <div class="sidebar-footer" style="position:relative">
+        <div class="user-menu-trigger" @click.stop="toggleMenu">
+          <div class="user-name">{{ auth.user?.name }}</div>
+          <div class="user-role">{{ auth.user?.role }} <span style="font-size:.65rem;opacity:.7">{{ menuOpen ? '▼' : '▲' }}</span></div>
+        </div>
+        <div v-if="menuOpen" class="user-menu">
+          <div class="user-menu-item" @click="closeMenu(); router.push('/account/settings')">Account Settings</div>
+          <div class="user-menu-item" @click="closeMenu(); router.push('/account/password')">Change Password</div>
+          <div class="user-menu-divider" />
+          <div class="user-menu-item user-menu-signout" @click="logout">Sign Out</div>
+        </div>
       </div>
     </aside>
 
@@ -84,3 +101,36 @@ function logout() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.user-menu-trigger {
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 8px;
+  transition: background .15s;
+}
+.user-menu-trigger:hover { background: rgba(255,255,255,.1); }
+
+.user-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0; right: 0;
+  background: #3a1159;
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  z-index: 100;
+}
+.user-menu-item {
+  padding: 10px 14px;
+  font-size: .85rem;
+  color: rgba(255,255,255,.88);
+  cursor: pointer;
+  transition: background .12s;
+}
+.user-menu-item:hover { background: rgba(255,255,255,.12); }
+.user-menu-divider { height: 1px; background: rgba(255,255,255,.12); margin: 3px 0; }
+.user-menu-signout { color: #ff9a9a; }
+.user-menu-signout:hover { background: rgba(255,80,80,.18); }
+</style>

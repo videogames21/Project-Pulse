@@ -2,7 +2,11 @@ package edu.tcu.cs.projectpulse.user;
 
 import edu.tcu.cs.projectpulse.system.Result;
 import edu.tcu.cs.projectpulse.system.StatusCode;
+import edu.tcu.cs.projectpulse.user.dto.ChangePasswordRequest;
+import edu.tcu.cs.projectpulse.user.dto.UpdateProfileRequest;
 import edu.tcu.cs.projectpulse.user.dto.UserResponse;
+import jakarta.validation.Valid;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,6 +19,32 @@ public class UserController {
 
     public UserController(UserService userService) {
         this.userService = userService;
+    }
+
+    @GetMapping("/me")
+    public Result me(Authentication authentication) {
+        UserResponse user = userService.findByEmail(authentication.getName());
+        return new Result(true, StatusCode.SUCCESS, "Current user retrieved successfully", user);
+    }
+
+    @GetMapping("/me/profile")
+    public Result getProfile(Authentication authentication) {
+        return new Result(true, StatusCode.SUCCESS, "Profile retrieved successfully",
+                userService.getProfile(authentication.getName()));
+    }
+
+    @PutMapping("/me")
+    public Result updateProfile(Authentication authentication,
+                                @Valid @RequestBody UpdateProfileRequest req) {
+        return new Result(true, StatusCode.SUCCESS, "Profile updated successfully",
+                userService.updateProfile(authentication.getName(), req));
+    }
+
+    @PutMapping("/me/password")
+    public Result changePassword(Authentication authentication,
+                                 @Valid @RequestBody ChangePasswordRequest req) {
+        userService.changePassword(authentication.getName(), req);
+        return new Result(true, StatusCode.SUCCESS, "Password changed successfully", null);
     }
 
     @GetMapping

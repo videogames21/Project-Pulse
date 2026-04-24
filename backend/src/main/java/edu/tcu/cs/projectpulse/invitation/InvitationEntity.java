@@ -21,7 +21,6 @@ public class InvitationEntity {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
-    // TODO: Replace with JWT principal once auth module is built
     @Column(nullable = false)
     private String invitedBy;
 

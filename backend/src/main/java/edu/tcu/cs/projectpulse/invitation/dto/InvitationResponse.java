@@ -1,16 +1,24 @@
 package edu.tcu.cs.projectpulse.invitation.dto;
 
+import java.util.List;
+
 public class InvitationResponse {
 
     private Long id;
-    private String registrationLink;  // populated on POST only; null in list view
-    private String tokenShort;        // first 8 chars of token for table display
+    private String token;
+    private String registrationLink;
+    private String tokenShort;
     private String status;
     private String createdAt;
     private String invitedBy;
+    private int usageCount;
+    private List<AcceptedUserInfo> acceptedUsers;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public String getToken() { return token; }
+    public void setToken(String token) { this.token = token; }
 
     public String getRegistrationLink() { return registrationLink; }
     public void setRegistrationLink(String registrationLink) { this.registrationLink = registrationLink; }
@@ -26,4 +34,10 @@ public class InvitationResponse {
 
     public String getInvitedBy() { return invitedBy; }
     public void setInvitedBy(String invitedBy) { this.invitedBy = invitedBy; }
+
+    public int getUsageCount() { return usageCount; }
+    public void setUsageCount(int usageCount) { this.usageCount = usageCount; }
+
+    public List<AcceptedUserInfo> getAcceptedUsers() { return acceptedUsers; }
+    public void setAcceptedUsers(List<AcceptedUserInfo> acceptedUsers) { this.acceptedUsers = acceptedUsers; }
 }

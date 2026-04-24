@@ -34,4 +34,22 @@ public class InvitationController {
         InvitationResponse response = service.findByToken(token);
         return new Result(true, StatusCode.SUCCESS, "Found", response);
     }
+
+    @PatchMapping("/{token}/disable")
+    public Result disable(@PathVariable String token) {
+        InvitationResponse response = service.disableInvitation(token);
+        return new Result(true, StatusCode.SUCCESS, "Invitation disabled.", response);
+    }
+
+    @PatchMapping("/{token}/enable")
+    public Result enable(@PathVariable String token) {
+        InvitationResponse response = service.enableInvitation(token);
+        return new Result(true, StatusCode.SUCCESS, "Invitation enabled.", response);
+    }
+
+    @DeleteMapping("/{token}")
+    public Result delete(@PathVariable String token) {
+        service.deleteInvitation(token);
+        return new Result(true, StatusCode.SUCCESS, "Invitation deleted.", null);
+    }
 }

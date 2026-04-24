@@ -1,7 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
-import LoginView          from '../features/auth/LoginView.vue'
+import LoginView            from '../features/auth/LoginView.vue'
+import AccountSettingsView  from '../features/auth/AccountSettingsView.vue'
+import ChangePasswordView   from '../features/auth/ChangePasswordView.vue'
 import WARView            from '../features/war/WARView.vue'
 import PeerEvalView       from '../features/peer-eval/PeerEvalView.vue'
 import MyReportView       from '../features/report/MyReportView.vue'
@@ -17,6 +19,8 @@ import AssignStudentsView from '../features/admin/AssignStudentsView.vue'
 const routes = [
   { path: '/',                  redirect: '/login' },
   { path: '/login',             component: LoginView,  meta: { public: true } },
+  { path: '/account/settings', component: AccountSettingsView },
+  { path: '/account/password', component: ChangePasswordView },
   { path: '/register/:token',   component: () => import('../features/auth/RegisterView.vue'), meta: { public: true } },
 
   // Student

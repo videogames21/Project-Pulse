@@ -1,9 +1,9 @@
 <script setup>
 import { ref, computed } from 'vue'
 import AppLayout from '../../components/AppLayout.vue'
-import { MOCK_WAR, WAR_CATEGORIES, WAR_STATUSES } from '../../data/mockData'
+import { WAR_CATEGORIES, WAR_STATUSES } from '../../data/mockData'
 
-const entries    = ref([...MOCK_WAR])
+const entries    = ref([])
 const filterWeek = ref('all')
 const showModal  = ref(false)
 const editing    = ref(null)

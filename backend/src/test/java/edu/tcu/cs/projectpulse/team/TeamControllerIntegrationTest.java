@@ -1,6 +1,7 @@
 package edu.tcu.cs.projectpulse.team;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.tcu.cs.projectpulse.TestJwtHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +15,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -22,13 +24,16 @@ class TeamControllerIntegrationTest {
 
     @Autowired WebApplicationContext wac;
     @Autowired TeamRepository teamRepository;
+    @Autowired TestJwtHelper jwtHelper;
 
     ObjectMapper objectMapper = new ObjectMapper();
     MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
+        mockMvc = MockMvcBuilders.webAppContextSetup(wac)
+                .apply(springSecurity())
+                .build();
         teamRepository.deleteAll();
     }
 
@@ -39,7 +44,8 @@ class TeamControllerIntegrationTest {
                 "description", "Test desc", "websiteUrl", "");
         String response = mockMvc.perform(post("/api/v1/teams")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
+                        .content(objectMapper.writeValueAsString(body))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(response).path("data").path("id").longValue();
     }
@@ -47,8 +53,15 @@ class TeamControllerIntegrationTest {
     // ── GET /api/v1/teams ────────────────────────────────────────────────────
 
     @Test
-    void findAll_emptyList_returns200WithEmptyArray() throws Exception {
+    void findAll_withoutJwt_returns403() throws Exception {
         mockMvc.perform(get("/api/v1/teams"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void findAll_emptyList_returns200WithEmptyArray() throws Exception {
+        mockMvc.perform(get("/api/v1/teams")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data", hasSize(0)));
@@ -59,7 +72,8 @@ class TeamControllerIntegrationTest {
         createTeam("Team Alpha", "CS4910");
         createTeam("Team Beta", "CS4910");
 
-        mockMvc.perform(get("/api/v1/teams"))
+        mockMvc.perform(get("/api/v1/teams")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(2)))
                 .andExpect(jsonPath("$.data[*].name", containsInAnyOrder("Team Alpha", "Team Beta")));
@@ -70,7 +84,8 @@ class TeamControllerIntegrationTest {
         createTeam("Team Alpha", "CS4910");
         createTeam("Team Beta", "CS4910");
 
-        mockMvc.perform(get("/api/v1/teams?teamName=Alpha"))
+        mockMvc.perform(get("/api/v1/teams?teamName=Alpha")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
                 .andExpect(jsonPath("$.data[0].name").value("Team Alpha"));
@@ -81,7 +96,8 @@ class TeamControllerIntegrationTest {
         createTeam("Team Alpha", "CS4910");
         createTeam("Team Beta", "CS4911");
 
-        mockMvc.perform(get("/api/v1/teams?sectionName=CS4910"))
+        mockMvc.perform(get("/api/v1/teams?sectionName=CS4910")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
                 .andExpect(jsonPath("$.data[0].sectionName").value("CS4910"));
@@ -91,7 +107,8 @@ class TeamControllerIntegrationTest {
     void findAll_filterNoMatch_returnsEmptyArray() throws Exception {
         createTeam("Team Alpha", "CS4910");
 
-        mockMvc.perform(get("/api/v1/teams?teamName=Nonexistent"))
+        mockMvc.perform(get("/api/v1/teams?teamName=Nonexistent")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(0)));
     }
@@ -102,7 +119,8 @@ class TeamControllerIntegrationTest {
     void findById_found_returns200WithDetails() throws Exception {
         Long id = createTeam("Team Alpha", "CS4910");
 
-        mockMvc.perform(get("/api/v1/teams/" + id))
+        mockMvc.perform(get("/api/v1/teams/" + id)
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.name").value("Team Alpha"))
@@ -111,7 +129,8 @@ class TeamControllerIntegrationTest {
 
     @Test
     void findById_notFound_returns404() throws Exception {
-        mockMvc.perform(get("/api/v1/teams/9999"))
+        mockMvc.perform(get("/api/v1/teams/9999")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -125,7 +144,8 @@ class TeamControllerIntegrationTest {
 
         mockMvc.perform(post("/api/v1/teams")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
+                        .content(objectMapper.writeValueAsString(body))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.name").value("New Team"))
@@ -143,7 +163,8 @@ class TeamControllerIntegrationTest {
 
         mockMvc.perform(post("/api/v1/teams")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
+                        .content(objectMapper.writeValueAsString(body))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -154,7 +175,8 @@ class TeamControllerIntegrationTest {
 
         mockMvc.perform(post("/api/v1/teams")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
+                        .content(objectMapper.writeValueAsString(body))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -165,7 +187,8 @@ class TeamControllerIntegrationTest {
 
         mockMvc.perform(post("/api/v1/teams")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
+                        .content(objectMapper.writeValueAsString(body))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
     }
