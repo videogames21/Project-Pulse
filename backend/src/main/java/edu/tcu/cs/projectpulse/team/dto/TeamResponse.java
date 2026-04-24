@@ -10,5 +10,6 @@ public record TeamResponse(
         String description,
         String websiteUrl,
         String sectionName,
-        List<UserResponse> students
+        List<UserResponse> students,
+        List<UserResponse> instructors
 ) {}

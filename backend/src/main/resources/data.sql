@@ -5,6 +5,9 @@ INSERT INTO teams (name, description, website_url, section_name) VALUES ('Team A
 INSERT INTO teams (name, description, website_url, section_name) VALUES ('Team Beta', 'Mobile app for campus navigation', 'http://teambeta.com', 'CS4910');
 INSERT INTO teams (name, description, website_url, section_name) VALUES ('Team Gamma', 'AI-powered scheduling tool', null, 'CS4911');
 
+INSERT INTO users (name, email, role, team_id) VALUES ('Dr. Smith',   'smith@tcu.edu',  'INSTRUCTOR', null);
+INSERT INTO users (name, email, role, team_id) VALUES ('Dr. Jones',   'jones@tcu.edu',  'INSTRUCTOR', null);
+
 INSERT INTO users (name, email, role, team_id) VALUES ('Alice Chen',  'alice@tcu.edu',  'STUDENT', null);
 INSERT INTO users (name, email, role, team_id) VALUES ('Bob Smith',   'bob@tcu.edu',    'STUDENT', null);
 INSERT INTO users (name, email, role, team_id) VALUES ('Carol White', 'carol@tcu.edu',  'STUDENT', null);

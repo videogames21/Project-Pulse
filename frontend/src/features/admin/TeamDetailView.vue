@@ -3,6 +3,8 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '../../components/AppLayout.vue'
 import { api } from '../../services/api.js'
+import { teamsApi } from '../../api/teams.js'
+import { usersApi } from '../../api/users.js'
 
 const route  = useRoute()
 const router = useRouter()
@@ -20,6 +22,13 @@ const showDeleteConfirm = ref(false)
 const deletePassword    = ref('')
 const deleteError       = ref('')
 
+// Instructor assignment
+const showAssignInstructor  = ref(false)
+const availableInstructors  = ref([])
+const selectedInstructorId  = ref(null)
+const assigningInstructor   = ref(false)
+const assignInstructorError = ref('')
+
 onMounted(async () => {
   try {
     const res = await api.get(`/api/v1/teams/${route.params.id}`)
@@ -28,6 +37,37 @@ onMounted(async () => {
     error.value = e.message
   }
 })
+
+async function openAssignInstructor() {
+  assignInstructorError.value = ''
+  selectedInstructorId.value  = null
+  try {
+    const res = await usersApi.getInstructors()
+    availableInstructors.value = res.data.filter(i => i.teamId === null)
+  } catch (e) {
+    assignInstructorError.value = 'Failed to load instructors.'
+  }
+  showAssignInstructor.value = true
+}
+
+async function confirmAssignInstructor() {
+  if (!selectedInstructorId.value) {
+    assignInstructorError.value = 'Please select an instructor.'
+    return
+  }
+  assigningInstructor.value = true
+  assignInstructorError.value = ''
+  try {
+    await teamsApi.assignInstructor(route.params.id, selectedInstructorId.value)
+    const res = await api.get(`/api/v1/teams/${route.params.id}`)
+    team.value = res.data
+    showAssignInstructor.value = false
+  } catch (e) {
+    assignInstructorError.value = e.message
+  } finally {
+    assigningInstructor.value = false
+  }
+}
 
 function startEdit() {
   form.value = { ...team.value }
@@ -121,6 +161,33 @@ async function confirmDelete() {
             <a v-if="team.websiteUrl" :href="team.websiteUrl" target="_blank" style="color:var(--purple)">{{ team.websiteUrl }}</a>
             <p v-else class="muted">—</p>
           </div>
+        </div>
+      </div>
+
+      <!-- Instructors -->
+      <div v-if="!editing" class="card" style="margin-top:16px;padding:0;overflow:hidden">
+        <div class="card-header" style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
+          <h3 style="font-size:.95rem;font-weight:700">Instructors</h3>
+          <button class="btn btn-primary btn-sm" @click="openAssignInstructor">+ Assign Instructor</button>
+        </div>
+        <div v-if="(team.instructors ?? []).length === 0" style="padding:16px">
+          <p class="muted">No instructors assigned to this team.</p>
+        </div>
+        <div v-else class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="i in team.instructors" :key="i.id">
+                <td><strong>{{ i.name }}</strong></td>
+                <td class="muted">{{ i.email }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -225,5 +292,42 @@ async function confirmDelete() {
         </div>
       </div>
     </div>
+    <!-- Assign Instructor Modal -->
+    <div v-if="showAssignInstructor" class="overlay" @click.self="showAssignInstructor = false">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>Assign Instructor</h3>
+          <button class="modal-close" @click="showAssignInstructor = false">×</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="assignInstructorError" class="alert alert-error" style="margin-bottom:12px">
+            {{ assignInstructorError }}
+          </div>
+          <div v-if="availableInstructors.length === 0" class="muted">
+            No unassigned instructors available.
+          </div>
+          <div v-else class="form-group" style="margin-bottom:0">
+            <label>Select Instructor</label>
+            <select v-model="selectedInstructorId" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text)">
+              <option :value="null" disabled>— Choose an instructor —</option>
+              <option v-for="i in availableInstructors" :key="i.id" :value="i.id">
+                {{ i.name }} ({{ i.email }})
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-secondary" @click="showAssignInstructor = false">Cancel</button>
+          <button
+            class="btn btn-primary"
+            :disabled="assigningInstructor || availableInstructors.length === 0"
+            @click="confirmAssignInstructor"
+          >
+            {{ assigningInstructor ? 'Assigning…' : 'Assign' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
   </AppLayout>
 </template>
