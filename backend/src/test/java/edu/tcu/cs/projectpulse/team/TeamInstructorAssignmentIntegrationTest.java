@@ -188,6 +188,95 @@ class TeamInstructorAssignmentIntegrationTest {
                 .andExpect(jsonPath("$.data.instructors", hasSize(0)));
     }
 
+    // ── DELETE /api/v1/teams/{id}/instructors/{instructorId} (UC-20) ─────────
+
+    @Test
+    void removeInstructor_validRequest_returns200() throws Exception {
+        Long teamId       = createTeam("Team Alpha");
+        Long instructorId = createInstructor("Dr. Smith", "smith@tcu.edu");
+
+        mockMvc.perform(post("/api/v1/teams/{id}/instructors", teamId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("instructorId", instructorId))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/v1/teams/{id}/instructors/{iid}", teamId, instructorId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void removeInstructor_instructorNoLongerInTeamResponse() throws Exception {
+        Long teamId       = createTeam("Team Alpha");
+        Long instructorId = createInstructor("Dr. Smith", "smith@tcu.edu");
+
+        mockMvc.perform(post("/api/v1/teams/{id}/instructors", teamId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("instructorId", instructorId))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/v1/teams/{id}/instructors/{iid}", teamId, instructorId))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/teams/{id}", teamId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.instructors", hasSize(0)));
+    }
+
+    @Test
+    void removeInstructor_instructorBecomesAvailableForOtherTeam() throws Exception {
+        Long teamId       = createTeam("Team Alpha");
+        Long team2Id      = createTeam("Team Beta");
+        Long instructorId = createInstructor("Dr. Smith", "smith@tcu.edu");
+
+        mockMvc.perform(post("/api/v1/teams/{id}/instructors", teamId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("instructorId", instructorId))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/v1/teams/{id}/instructors/{iid}", teamId, instructorId))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/teams/{id}/instructors", team2Id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("instructorId", instructorId))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void removeInstructor_teamNotFound_returns404() throws Exception {
+        Long instructorId = createInstructor("Dr. Smith", "smith@tcu.edu");
+
+        mockMvc.perform(delete("/api/v1/teams/{id}/instructors/{iid}", 9999L, instructorId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void removeInstructor_instructorNotFound_returns404() throws Exception {
+        Long teamId = createTeam("Team Alpha");
+
+        mockMvc.perform(delete("/api/v1/teams/{id}/instructors/{iid}", teamId, 9999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void removeInstructor_notAssignedToThisTeam_returns409() throws Exception {
+        Long teamId  = createTeam("Team Alpha");
+        Long team2Id = createTeam("Team Beta");
+        Long instructorId = createInstructor("Dr. Smith", "smith@tcu.edu");
+
+        mockMvc.perform(post("/api/v1/teams/{id}/instructors", team2Id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("instructorId", instructorId))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/v1/teams/{id}/instructors/{iid}", teamId, instructorId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
     @Test
     void assignInstructor_studentsNotAffected() throws Exception {
         Long teamId       = createTeam("Team Alpha");

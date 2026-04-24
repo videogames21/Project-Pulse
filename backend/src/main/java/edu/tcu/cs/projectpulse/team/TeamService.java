@@ -84,6 +84,22 @@ public class TeamService {
     }
 
     @Transactional
+    public void removeInstructor(Long teamId, Long instructorId) {
+        teamRepository.findById(teamId)
+                .orElseThrow(() -> new TeamNotFoundException(teamId));
+
+        UserEntity instructor = userRepository.findById(instructorId)
+                .orElseThrow(() -> new UserNotFoundException(instructorId));
+
+        if (!teamId.equals(instructor.getTeamId())) {
+            throw new IllegalStateException("Instructor is not assigned to this team.");
+        }
+
+        instructor.setTeamId(null);
+        userRepository.save(instructor);
+    }
+
+    @Transactional
     public void assignInstructor(Long teamId, Long instructorId) {
         teamRepository.findById(teamId)
                 .orElseThrow(() -> new TeamNotFoundException(teamId));

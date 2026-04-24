@@ -29,6 +29,12 @@ const selectedInstructorId  = ref(null)
 const assigningInstructor   = ref(false)
 const assignInstructorError = ref('')
 
+// Instructor removal
+const showRemoveInstructor  = ref(false)
+const instructorToRemove    = ref(null)
+const removingInstructor    = ref(false)
+const removeInstructorError = ref('')
+
 onMounted(async () => {
   try {
     const res = await api.get(`/api/v1/teams/${route.params.id}`)
@@ -48,6 +54,27 @@ async function openAssignInstructor() {
     assignInstructorError.value = 'Failed to load instructors.'
   }
   showAssignInstructor.value = true
+}
+
+function openRemoveInstructor(instructor) {
+  instructorToRemove.value    = instructor
+  removeInstructorError.value = ''
+  showRemoveInstructor.value  = true
+}
+
+async function confirmRemoveInstructor() {
+  removingInstructor.value    = true
+  removeInstructorError.value = ''
+  try {
+    await teamsApi.removeInstructor(route.params.id, instructorToRemove.value.id)
+    const res = await api.get(`/api/v1/teams/${route.params.id}`)
+    team.value = res.data
+    showRemoveInstructor.value = false
+  } catch (e) {
+    removeInstructorError.value = e.message
+  } finally {
+    removingInstructor.value = false
+  }
 }
 
 async function confirmAssignInstructor() {
@@ -179,12 +206,16 @@ async function confirmDelete() {
               <tr>
                 <th>Name</th>
                 <th>Email</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="i in team.instructors" :key="i.id">
                 <td><strong>{{ i.name }}</strong></td>
                 <td class="muted">{{ i.email }}</td>
+                <td>
+                  <button class="btn btn-secondary btn-sm" style="color:#dc2626" @click="openRemoveInstructor(i)">Remove</button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -292,6 +323,29 @@ async function confirmDelete() {
         </div>
       </div>
     </div>
+    <!-- Remove Instructor Modal -->
+    <div v-if="showRemoveInstructor" class="overlay" @click.self="showRemoveInstructor = false">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>Remove Instructor</h3>
+          <button class="modal-close" @click="showRemoveInstructor = false">×</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="removeInstructorError" class="alert alert-error" style="margin-bottom:12px">
+            {{ removeInstructorError }}
+          </div>
+          <p>Remove <strong>{{ instructorToRemove?.name }}</strong> from <strong>{{ team?.name }}</strong>?</p>
+          <p class="muted" style="margin-top:8px;font-size:.875rem">They will be returned to the unassigned pool.</p>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-secondary" @click="showRemoveInstructor = false">Cancel</button>
+          <button class="btn" style="background:#dc2626;color:#fff" :disabled="removingInstructor" @click="confirmRemoveInstructor">
+            {{ removingInstructor ? 'Removing…' : 'Remove' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Assign Instructor Modal -->
     <div v-if="showAssignInstructor" class="overlay" @click.self="showAssignInstructor = false">
       <div class="modal">

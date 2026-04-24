@@ -79,6 +79,12 @@ public class TeamController {
         return new Result(true, StatusCode.SUCCESS, "Instructor assigned successfully");
     }
 
+    @DeleteMapping("/{id}/instructors/{instructorId}")
+    public Result removeInstructor(@PathVariable Long id, @PathVariable Long instructorId) {
+        teamService.removeInstructor(id, instructorId);
+        return new Result(true, StatusCode.SUCCESS, "Instructor removed from team");
+    }
+
     private TeamResponse toResponse(TeamEntity entity) {
         List<UserResponse> students = teamService.findStudentsByTeamId(entity.getId())
                 .stream()
