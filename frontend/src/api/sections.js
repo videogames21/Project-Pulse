@@ -15,4 +15,8 @@ export const sectionsApi = {
   create(payload) {
     return api.post('/api/v1/sections', payload)
   },
+
+  update(id, payload) {
+    return api.put(`/api/v1/sections/${id}`, payload)
+  },
 }

@@ -1331,4 +1331,202 @@ class SectionControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.instructorsNotOnTeam", hasSize(1)))
                 .andExpect(jsonPath("$.data.instructorsNotOnTeam[0]").value("Dr. Smith"));
     }
+
+    // ── PUT /api/v1/sections/{id} (UC-5: edit section) ───────────────────────
+
+    @Test
+    void updateSection_validInput_returns200WithUpdatedDetail() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        var body = Map.of(
+                "name", "2025-2026 Updated",
+                "startDate", "2025-09-01",
+                "endDate", "2026-06-01"
+        );
+
+        mockMvc.perform(put("/api/v1/sections/{id}", saved.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.sectionName").value("2025-2026 Updated"))
+                .andExpect(jsonPath("$.data.startDate").value("2025-09-01"))
+                .andExpect(jsonPath("$.data.endDate").value("2026-06-01"))
+                .andExpect(jsonPath("$.data.id").value(saved.getId()));
+    }
+
+    @Test
+    void updateSection_sameNameAsItself_returns200NoDuplicateConflict() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        var body = Map.of(
+                "name", "2025-2026",
+                "startDate", "2025-09-01",
+                "endDate", "2026-06-01"
+        );
+
+        mockMvc.perform(put("/api/v1/sections/{id}", saved.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sectionName").value("2025-2026"));
+    }
+
+    @Test
+    void updateSection_nameAlreadyTakenByAnotherSection_returns409() throws Exception {
+        createSection("2024-2025");
+        SectionEntity target = createSection("2025-2026");
+
+        var body = Map.of("name", "2024-2025");
+
+        mockMvc.perform(put("/api/v1/sections/{id}", target.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void updateSection_blankName_returns400() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        var body = Map.of("name", "");
+
+        mockMvc.perform(put("/api/v1/sections/{id}", saved.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void updateSection_sectionNotFound_returns404() throws Exception {
+        var body = Map.of("name", "Does Not Exist");
+
+        mockMvc.perform(put("/api/v1/sections/{id}", 9999L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void updateSection_datesOnly_returns200WithUpdatedDates() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        var body = Map.of(
+                "name", "2025-2026",
+                "startDate", "2025-10-01",
+                "endDate", "2026-07-01"
+        );
+
+        mockMvc.perform(put("/api/v1/sections/{id}", saved.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.startDate").value("2025-10-01"))
+                .andExpect(jsonPath("$.data.endDate").value("2026-07-01"));
+    }
+
+    @Test
+    void updateSection_withExistingRubric_linksRubric() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        Long rubricId = createRubric("Peer Evaluation Rubric");
+
+        var body = Map.of("name", "2025-2026", "rubricId", rubricId);
+
+        mockMvc.perform(put("/api/v1/sections/{id}", saved.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rubricName").value("Peer Evaluation Rubric"));
+    }
+
+    @Test
+    void updateSection_withEditedCriteria_createsCopyAndOriginalUnchanged() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        Long rubricId = createRubric("Original Rubric");
+
+        var criteria = List.of(
+                Map.of("name", "Communication", "description", "How well they communicate", "maxScore", 10)
+        );
+        var body = Map.of("name", "2025-2026", "rubricId", rubricId, "criteria", criteria);
+
+        mockMvc.perform(put("/api/v1/sections/{id}", saved.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rubricName").value("Copy of Original Rubric"));
+
+        // Original rubric must still exist unchanged
+        mockMvc.perform(get("/api/v1/rubrics/{id}", rubricId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("Original Rubric"))
+                .andExpect(jsonPath("$.data.criteria", hasSize(0)));
+    }
+
+    @Test
+    void updateSection_removeRubric_rubricNameIsNull() throws Exception {
+        Long rubricId = createRubric("Peer Evaluation Rubric");
+        SectionEntity saved = createSectionWithRubric("2025-2026", rubricId);
+
+        var body = Map.of("name", "2025-2026");
+
+        mockMvc.perform(put("/api/v1/sections/{id}", saved.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rubricName").doesNotExist());
+    }
+
+    @Test
+    void updateSection_invalidIdFormat_returns400() throws Exception {
+        var body = Map.of("name", "2025-2026");
+
+        mockMvc.perform(put("/api/v1/sections/{id}", "abc")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void updateSection_renameSection_teamsStillAppearsInSection() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        createTeam("Team Alpha", "2025-2026");
+        createTeam("Team Beta", "2025-2026");
+
+        var body = Map.of("name", "2025-2026 Renamed");
+
+        mockMvc.perform(put("/api/v1/sections/{id}", saved.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sectionName").value("2025-2026 Renamed"))
+                .andExpect(jsonPath("$.data.teams", hasSize(2)))
+                .andExpect(jsonPath("$.data.teams[0].name").value("Team Alpha"))
+                .andExpect(jsonPath("$.data.teams[1].name").value("Team Beta"));
+    }
+
+    @Test
+    void updateSection_persistedChangesRetrievableViaGetById() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        var body = Map.of(
+                "name", "2025-2026 Edited",
+                "startDate", "2025-09-01",
+                "endDate", "2026-06-01"
+        );
+
+        mockMvc.perform(put("/api/v1/sections/{id}", saved.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sectionName").value("2025-2026 Edited"))
+                .andExpect(jsonPath("$.data.startDate").value("2025-09-01"))
+                .andExpect(jsonPath("$.data.endDate").value("2026-06-01"));
+    }
 }

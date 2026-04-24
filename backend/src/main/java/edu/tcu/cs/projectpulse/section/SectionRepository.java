@@ -5,4 +5,6 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface SectionRepository extends JpaRepository<SectionEntity, Long>, JpaSpecificationExecutor<SectionEntity> {
     boolean existsByName(String name);
+
+    boolean existsByNameAndIdNot(String name, Long id);
 }
