@@ -1,10 +1,12 @@
 package edu.tcu.cs.projectpulse.system;
 
-import edu.tcu.cs.projectpulse.peerevaluation.AlreadySubmittedException;
 import edu.tcu.cs.projectpulse.invitation.InvitationNotFoundException;
+import edu.tcu.cs.projectpulse.peerevaluation.AlreadySubmittedException;
 import edu.tcu.cs.projectpulse.rubric.RubricNameConflictException;
 import edu.tcu.cs.projectpulse.rubric.RubricNotFoundException;
+import edu.tcu.cs.projectpulse.team.TeamNameConflictException;
 import edu.tcu.cs.projectpulse.team.TeamNotFoundException;
+import edu.tcu.cs.projectpulse.user.UserNotFoundException;
 import edu.tcu.cs.projectpulse.war.WAREntryNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.FieldError;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.HashMap;
@@ -38,6 +41,18 @@ public class GlobalExceptionHandler {
         return new Result(false, StatusCode.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(TeamNameConflictException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Result handleTeamNameConflict(TeamNameConflictException ex) {
+        return new Result(false, StatusCode.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Result handleUserNotFound(UserNotFoundException ex) {
+        return new Result(false, StatusCode.NOT_FOUND, ex.getMessage());
+    }
+
     @ExceptionHandler(WAREntryNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Result handleWAREntryNotFound(WAREntryNotFoundException ex) {
@@ -54,6 +69,19 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Result handleInvitationNotFound(InvitationNotFoundException ex) {
         return new Result(false, StatusCode.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Result handleIllegalState(IllegalStateException ex) {
+        return new Result(false, StatusCode.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Result handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return new Result(false, StatusCode.INVALID_ARGUMENT,
+                "Invalid value '" + ex.getValue() + "' for parameter '" + ex.getName() + "'");
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

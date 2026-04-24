@@ -1,7 +1,9 @@
 package edu.tcu.cs.projectpulse.team;
 
 import edu.tcu.cs.projectpulse.notification.NotificationService;
+import edu.tcu.cs.projectpulse.team.dto.TeamRequest;
 import edu.tcu.cs.projectpulse.user.UserEntity;
+import edu.tcu.cs.projectpulse.user.UserNotFoundException;
 import edu.tcu.cs.projectpulse.user.UserRepository;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -31,6 +33,30 @@ public class TeamService {
                 .orElseThrow(() -> new TeamNotFoundException(id));
     }
 
+    public TeamEntity create(TeamRequest request) {
+        if (teamRepository.existsByName(request.name())) {
+            throw new TeamNameConflictException(request.name());
+        }
+        TeamEntity team = new TeamEntity();
+        team.setName(request.name());
+        team.setDescription(request.description());
+        team.setWebsiteUrl(request.websiteUrl());
+        team.setSectionName(request.sectionName());
+        return teamRepository.save(team);
+    }
+
+    public TeamEntity update(Long id, TeamRequest request) {
+        TeamEntity team = findById(id);
+        if (teamRepository.existsByNameAndIdNot(request.name(), id)) {
+            throw new TeamNameConflictException(request.name());
+        }
+        team.setName(request.name());
+        team.setDescription(request.description());
+        team.setWebsiteUrl(request.websiteUrl());
+        team.setSectionName(request.sectionName());
+        return teamRepository.save(team);
+    }
+
     public List<TeamEntity> findAll(String sectionName, String teamName) {
         Specification<TeamEntity> spec = Specification
                 .where(TeamSpec.hasSectionName(sectionName))
@@ -38,8 +64,31 @@ public class TeamService {
         return teamRepository.findAll(spec, Sort.by(Sort.Order.desc("sectionName"), Sort.Order.asc("name")));
     }
 
+    public void delete(Long id) {
+        TeamEntity team = findById(id);
+        team.getMembers().clear();
+        teamRepository.save(team);
+        teamRepository.delete(team);
+    }
+
     public List<UserEntity> findMembers(Long teamId) {
         return findById(teamId).getMembers();
+    }
+
+    public void assignStudents(Long teamId, List<Long> studentIds) {
+        TeamEntity team = findById(teamId);
+        for (Long studentId : studentIds) {
+            UserEntity student = userRepository.findById(studentId)
+                    .orElseThrow(() -> new UserNotFoundException(studentId));
+            boolean alreadyOnATeam = teamRepository.findFirstByMembersId(studentId).isPresent();
+            if (alreadyOnATeam) {
+                throw new IllegalStateException(
+                        "Student " + student.getFirstName() + " " + student.getLastName()
+                        + " is already assigned to a team. Remove them first.");
+            }
+            team.getMembers().add(student);
+        }
+        teamRepository.save(team);
     }
 
     public List<UserEntity> findMyTeamMembers(Long userId) {
@@ -53,7 +102,7 @@ public class TeamService {
     public void removeMember(Long teamId, Long userId) {
         TeamEntity team = findById(teamId);
         UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found with id " + userId));
+                .orElseThrow(() -> new UserNotFoundException(userId));
         team.getMembers().remove(user);
         teamRepository.save(team);
         notificationService.create(userId,
