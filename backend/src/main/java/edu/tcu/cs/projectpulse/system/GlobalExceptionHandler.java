@@ -3,6 +3,7 @@ package edu.tcu.cs.projectpulse.system;
 import edu.tcu.cs.projectpulse.invitation.InvitationNotFoundException;
 import edu.tcu.cs.projectpulse.rubric.RubricNameConflictException;
 import edu.tcu.cs.projectpulse.rubric.RubricNotFoundException;
+import edu.tcu.cs.projectpulse.section.SectionNameConflictException;
 import edu.tcu.cs.projectpulse.section.SectionNotFoundException;
 import edu.tcu.cs.projectpulse.team.TeamNameConflictException;
 import edu.tcu.cs.projectpulse.team.TeamNotFoundException;
@@ -49,6 +50,12 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Result handleSectionNotFound(SectionNotFoundException ex) {
         return new Result(false, StatusCode.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(SectionNameConflictException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Result handleSectionNameConflict(SectionNameConflictException ex) {
+        return new Result(false, StatusCode.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler(InvitationNotFoundException.class)

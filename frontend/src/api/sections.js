@@ -11,4 +11,8 @@ export const sectionsApi = {
   getById(id) {
     return api.get(`/api/v1/sections/${id}`)
   },
+
+  create(payload) {
+    return api.post('/api/v1/sections', payload)
+  },
 }
