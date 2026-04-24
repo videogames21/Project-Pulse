@@ -28,7 +28,7 @@ onMounted(async () => {
 <template>
   <AppLayout>
     <div class="flex items-center gap-2 mb-4" style="margin-bottom:16px">
-      <button class="btn btn-secondary btn-sm" @click="router.back()">← Back</button>
+      <button class="btn btn-secondary btn-sm" @click="router.push('/admin/sections')">← Back</button>
       <button
         v-if="section"
         class="btn btn-primary btn-sm"

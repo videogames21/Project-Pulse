@@ -1529,4 +1529,77 @@ class SectionControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.startDate").value("2025-09-01"))
                 .andExpect(jsonPath("$.data.endDate").value("2026-06-01"));
     }
+
+    // ── rubricId round-trip ───────────────────────────────────────────────────
+
+    @Test
+    void createSection_withRubric_responseIncludesRubricId() throws Exception {
+        Long rubricId = createRubric("Peer Evaluation Rubric");
+
+        var body = Map.of("name", "2025-2026", "rubricId", rubricId);
+
+        mockMvc.perform(post("/api/v1/sections")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.rubricId").value(rubricId));
+    }
+
+    @Test
+    void createSection_noRubric_rubricIdAbsent() throws Exception {
+        var body = Map.of("name", "2025-2026");
+
+        mockMvc.perform(post("/api/v1/sections")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.rubricId").doesNotExist());
+    }
+
+    @Test
+    void findSectionById_withLinkedRubric_responseIncludesRubricId() throws Exception {
+        Long rubricId = createRubric("Peer Evaluation Rubric");
+        SectionEntity saved = createSectionWithRubric("2025-2026", rubricId);
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rubricId").value(rubricId));
+    }
+
+    @Test
+    void findSectionById_noRubric_rubricIdAbsent() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rubricId").doesNotExist());
+    }
+
+    @Test
+    void updateSection_withRubric_responseIncludesRubricId() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        Long rubricId = createRubric("Peer Evaluation Rubric");
+
+        var body = Map.of("name", "2025-2026", "rubricId", rubricId);
+
+        mockMvc.perform(put("/api/v1/sections/{id}", saved.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rubricId").value(rubricId));
+    }
+
+    @Test
+    void updateSection_removeRubric_rubricIdAbsent() throws Exception {
+        Long rubricId = createRubric("Peer Evaluation Rubric");
+        SectionEntity saved = createSectionWithRubric("2025-2026", rubricId);
+
+        var body = Map.of("name", "2025-2026");
+
+        mockMvc.perform(put("/api/v1/sections/{id}", saved.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rubricId").doesNotExist());
+    }
 }

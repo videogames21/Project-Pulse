@@ -19,7 +19,6 @@ const step1Error = ref('')
 
 // Step 2 — rubric selection
 const rubrics = ref([])
-const rubricsLoading = ref(false)
 const selectedRubricId = ref(null)
 
 // Step 3 — criteria editing
@@ -59,14 +58,18 @@ onMounted(async () => {
     form.value.startDate = s.startDate   ?? ''
     form.value.endDate   = s.endDate     ?? ''
 
-    if (rubricsRes.status === 'fulfilled') {
+    if (rubricsRes.status === 'rejected') {
+      if (s.rubricName) {
+        loadError.value = 'Failed to load rubrics. Cannot edit a section with a linked rubric — please try again.'
+        return
+      }
+    } else {
       rubrics.value = rubricsRes.value.data ?? []
     }
 
-    // Pre-select the rubric that was previously linked (match by name)
-    if (s.rubricName) {
-      const match = rubrics.value.find(r => r.name === s.rubricName)
-      if (match) selectedRubricId.value = match.id
+    // Pre-select the rubric that was previously linked (round-trip via rubricId)
+    if (s.rubricId) {
+      selectedRubricId.value = s.rubricId
     }
   } finally {
     loading.value = false
@@ -267,66 +270,62 @@ const stepLabels = ['Details', 'Rubric', 'Criteria', 'Confirm']
         </div>
         <div style="padding:20px">
 
-          <div v-if="rubricsLoading" class="muted" style="margin-bottom:16px">Loading rubrics…</div>
+          <p class="muted" style="font-size:.85rem;margin-bottom:12px">Select an existing rubric, or skip to leave it unset.</p>
 
-          <template v-else>
-            <p class="muted" style="font-size:.85rem;margin-bottom:12px">Select an existing rubric, or skip to leave it unset.</p>
+          <div v-if="rubrics.length === 0" class="muted" style="margin-bottom:8px;font-size:.85rem">
+            No rubrics exist yet.
+            <a href="/admin/rubrics" style="color:var(--primary);margin-left:4px">Create one first →</a>
+          </div>
 
-            <div v-if="rubrics.length === 0" class="muted" style="margin-bottom:8px;font-size:.85rem">
-              No rubrics exist yet.
-              <a href="/admin/rubrics" style="color:var(--primary);margin-left:4px">Create one first →</a>
-            </div>
-
-            <div
-              v-for="r in rubrics"
-              :key="r.id"
-              class="card"
-              style="padding:12px 16px;margin-bottom:8px;cursor:pointer;border:2px solid transparent;transition:border .15s"
-              :style="selectedRubricId === r.id ? 'border-color:var(--primary);background:var(--surface-2)' : ''"
-              @click="selectRubric(r.id)"
-            >
-              <div class="flex items-center gap-3">
-                <input
-                  type="radio"
-                  :value="r.id"
-                  v-model="selectedRubricId"
-                  style="width:16px;height:16px;accent-color:var(--primary)"
-                />
-                <div>
-                  <p style="font-weight:600;margin:0">{{ r.name }}</p>
-                  <p class="muted" style="font-size:.78rem;margin:2px 0 0">
-                    {{ r.criteria.length }} criteria ·
-                    {{ r.criteria.reduce((s, c) => s + Number(c.maxScore ?? 0), 0) }} pts total
-                  </p>
-                </div>
+          <div
+            v-for="r in rubrics"
+            :key="r.id"
+            class="card"
+            style="padding:12px 16px;margin-bottom:8px;cursor:pointer;border:2px solid transparent;transition:border .15s"
+            :style="selectedRubricId === r.id ? 'border-color:var(--primary);background:var(--surface-2)' : ''"
+            @click="selectRubric(r.id)"
+          >
+            <div class="flex items-center gap-3">
+              <input
+                type="radio"
+                :value="r.id"
+                v-model="selectedRubricId"
+                style="width:16px;height:16px;accent-color:var(--primary)"
+              />
+              <div>
+                <p style="font-weight:600;margin:0">{{ r.name }}</p>
+                <p class="muted" style="font-size:.78rem;margin:2px 0 0">
+                  {{ r.criteria.length }} criteria ·
+                  {{ r.criteria.reduce((s, c) => s + Number(c.maxScore ?? 0), 0) }} pts total
+                </p>
               </div>
             </div>
+          </div>
 
-            <!-- No rubric option -->
-            <div
-              class="card"
-              style="padding:12px 16px;margin-bottom:8px;cursor:pointer;border:2px solid transparent;transition:border .15s"
-              :style="selectedRubricId === null ? 'border-color:var(--primary);background:var(--surface-2)' : ''"
-              @click="selectedRubricId = null"
-            >
-              <div class="flex items-center gap-3">
-                <input
-                  type="radio"
-                  :value="null"
-                  v-model="selectedRubricId"
-                  style="width:16px;height:16px;accent-color:var(--primary)"
-                />
-                <div>
-                  <p style="font-weight:600;margin:0">No rubric</p>
-                  <p class="muted" style="font-size:.78rem;margin:2px 0 0">Remove the rubric from this section.</p>
-                </div>
+          <!-- No rubric option -->
+          <div
+            class="card"
+            style="padding:12px 16px;margin-bottom:8px;cursor:pointer;border:2px solid transparent;transition:border .15s"
+            :style="selectedRubricId === null ? 'border-color:var(--primary);background:var(--surface-2)' : ''"
+            @click="selectedRubricId = null"
+          >
+            <div class="flex items-center gap-3">
+              <input
+                type="radio"
+                :value="null"
+                v-model="selectedRubricId"
+                style="width:16px;height:16px;accent-color:var(--primary)"
+              />
+              <div>
+                <p style="font-weight:600;margin:0">No rubric</p>
+                <p class="muted" style="font-size:.78rem;margin:2px 0 0">Remove the rubric from this section.</p>
               </div>
             </div>
+          </div>
 
-            <div v-if="rubrics.length > 0" style="margin-top:4px">
-              <a href="/admin/rubrics" style="color:var(--primary);font-size:.82rem">+ Create a new rubric first →</a>
-            </div>
-          </template>
+          <div v-if="rubrics.length > 0" style="margin-top:4px">
+            <a href="/admin/rubrics" style="color:var(--primary);font-size:.82rem">+ Create a new rubric first →</a>
+          </div>
 
           <div class="flex gap-2 justify-end" style="margin-top:24px">
             <button class="btn btn-secondary" @click="step = 1">← Back</button>

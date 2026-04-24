@@ -207,6 +207,7 @@ public class SectionService {
                 teams,
                 instructorsNotOnTeam,
                 studentsNotOnTeam,
+                section.getRubricId(),
                 rubricName
         );
     }
