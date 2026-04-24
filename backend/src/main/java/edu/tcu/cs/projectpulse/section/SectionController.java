@@ -39,4 +39,10 @@ public class SectionController {
         SectionDetailResponse section = sectionService.findSectionById(id);
         return new Result(true, StatusCode.SUCCESS, "Section retrieved successfully", section);
     }
+
+    @PutMapping("/{id}")
+    public Result update(@PathVariable Long id, @Valid @RequestBody SectionRequest request) {
+        SectionDetailResponse section = sectionService.update(id, request);
+        return new Result(true, StatusCode.SUCCESS, "Section updated successfully", section);
+    }
 }

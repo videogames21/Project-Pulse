@@ -101,6 +101,60 @@ public class SectionService {
                 .toList();
     }
 
+    @Transactional
+    public SectionDetailResponse update(Long id, SectionRequest request) {
+        SectionEntity section = sectionRepository.findById(id)
+                .orElseThrow(() -> new SectionNotFoundException(id));
+
+        if (sectionRepository.existsByNameAndIdNot(request.name(), id)) {
+            throw new SectionNameConflictException(request.name());
+        }
+
+        String oldName = section.getName();
+        String newName = request.name();
+
+        section.setName(newName);
+        section.setStartDate(request.startDate());
+        section.setEndDate(request.endDate());
+
+        if (!oldName.equals(newName)) {
+            teamRepository.findAllBySectionNameOrderByNameAsc(oldName)
+                    .forEach(t -> t.setSectionName(newName));
+        }
+
+        if (request.rubricId() != null) {
+            RubricEntity original = rubricRepository.findById(request.rubricId())
+                    .orElseThrow(() -> new RubricNotFoundException(request.rubricId()));
+
+            if (request.criteria() != null && !request.criteria().isEmpty()) {
+                RubricEntity copy = new RubricEntity();
+                String baseName = "Copy of " + original.getName();
+                String copyName = baseName;
+                int suffix = 2;
+                while (rubricRepository.existsByName(copyName)) {
+                    copyName = baseName + " (" + suffix++ + ")";
+                }
+                copy.setName(copyName);
+                for (CriterionRequest cr : request.criteria()) {
+                    CriterionEntity criterion = new CriterionEntity();
+                    criterion.setName(cr.name());
+                    criterion.setDescription(cr.description());
+                    criterion.setMaxScore(cr.maxScore());
+                    copy.addCriterion(criterion);
+                }
+                RubricEntity saved = rubricRepository.save(copy);
+                section.setRubricId(saved.getId());
+            } else {
+                section.setRubricId(original.getId());
+            }
+        } else {
+            section.setRubricId(null);
+        }
+
+        sectionRepository.save(section);
+        return findSectionById(id);
+    }
+
     public SectionDetailResponse findSectionById(Long id) {
         SectionEntity section = sectionRepository.findById(id)
                 .orElseThrow(() -> new SectionNotFoundException(id));
@@ -153,6 +207,7 @@ public class SectionService {
                 teams,
                 instructorsNotOnTeam,
                 studentsNotOnTeam,
+                section.getRubricId(),
                 rubricName
         );
     }
