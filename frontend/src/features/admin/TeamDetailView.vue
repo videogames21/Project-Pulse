@@ -191,6 +191,32 @@ async function confirmDelete() {
         </div>
       </div>
 
+      <!-- Students -->
+      <div v-if="!editing" class="card" style="margin-top:16px;padding:0;overflow:hidden">
+        <div class="card-header" style="padding:12px 16px">
+          <h3 style="font-size:.95rem;font-weight:700">Students</h3>
+        </div>
+        <div v-if="(team.students ?? []).length === 0" style="padding:16px">
+          <p class="muted">No students assigned to this team.</p>
+        </div>
+        <div v-else class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="s in team.students" :key="s.id">
+                <td><strong>{{ s.name }}</strong></td>
+                <td class="muted">{{ s.email }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Instructors -->
       <div v-if="!editing" class="card" style="margin-top:16px;padding:0;overflow:hidden">
         <div class="card-header" style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
