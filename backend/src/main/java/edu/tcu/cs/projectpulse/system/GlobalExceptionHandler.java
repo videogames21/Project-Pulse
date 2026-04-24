@@ -9,6 +9,7 @@ import edu.tcu.cs.projectpulse.team.TeamNameConflictException;
 import edu.tcu.cs.projectpulse.team.TeamNotFoundException;
 import edu.tcu.cs.projectpulse.user.UserNotFoundException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -74,6 +75,12 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.CONFLICT)
     public Result handleIllegalState(IllegalStateException ex) {
         return new Result(false, StatusCode.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Result handleUnreadableMessage(HttpMessageNotReadableException ex) {
+        return new Result(false, StatusCode.INVALID_ARGUMENT, "Malformed request body: " + ex.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
