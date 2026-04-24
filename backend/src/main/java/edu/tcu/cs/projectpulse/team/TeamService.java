@@ -3,6 +3,7 @@ package edu.tcu.cs.projectpulse.team;
 import edu.tcu.cs.projectpulse.user.UserEntity;
 import edu.tcu.cs.projectpulse.user.UserNotFoundException;
 import edu.tcu.cs.projectpulse.user.UserRepository;
+import edu.tcu.cs.projectpulse.user.UserRole;
 import edu.tcu.cs.projectpulse.team.dto.TeamRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -71,7 +72,52 @@ public class TeamService {
     }
 
     public List<UserEntity> findStudentsByTeamId(Long teamId) {
-        return userRepository.findByTeamId(teamId);
+        return userRepository.findByTeamId(teamId).stream()
+                .filter(u -> u.getRole() == UserRole.STUDENT)
+                .toList();
+    }
+
+    public List<UserEntity> findInstructorsByTeamId(Long teamId) {
+        return userRepository.findByTeamId(teamId).stream()
+                .filter(u -> u.getRole() == UserRole.INSTRUCTOR)
+                .toList();
+    }
+
+    @Transactional
+    public void removeInstructor(Long teamId, Long instructorId) {
+        teamRepository.findById(teamId)
+                .orElseThrow(() -> new TeamNotFoundException(teamId));
+
+        UserEntity instructor = userRepository.findById(instructorId)
+                .orElseThrow(() -> new UserNotFoundException(instructorId));
+
+        if (!teamId.equals(instructor.getTeamId())) {
+            throw new IllegalStateException("Instructor is not assigned to this team.");
+        }
+
+        instructor.setTeamId(null);
+        userRepository.save(instructor);
+    }
+
+    @Transactional
+    public void assignInstructor(Long teamId, Long instructorId) {
+        teamRepository.findById(teamId)
+                .orElseThrow(() -> new TeamNotFoundException(teamId));
+
+        UserEntity instructor = userRepository.findById(instructorId)
+                .orElseThrow(() -> new UserNotFoundException(instructorId));
+
+        if (instructor.getRole() != UserRole.INSTRUCTOR) {
+            throw new IllegalArgumentException("User " + instructorId + " is not an instructor.");
+        }
+
+        if (instructor.getTeamId() != null) {
+            throw new IllegalStateException(
+                    "Instructor " + instructor.getName() + " is already assigned to a team. Remove them first.");
+        }
+
+        instructor.setTeamId(teamId);
+        userRepository.save(instructor);
     }
 
     @Transactional
