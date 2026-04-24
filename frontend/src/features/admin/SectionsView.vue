@@ -31,6 +31,7 @@ onMounted(fetchSections)
   <AppLayout>
     <div class="flex justify-between items-center mb-4">
       <p class="muted">Manage Senior Design sections (one per academic year).</p>
+      <button class="btn btn-primary" @click="router.push('/admin/sections/create')">+ Create Section</button>
     </div>
 
     <div class="flex gap-2 mb-4">

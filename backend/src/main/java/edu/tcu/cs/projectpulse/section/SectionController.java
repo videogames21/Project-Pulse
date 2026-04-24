@@ -1,9 +1,12 @@
 package edu.tcu.cs.projectpulse.section;
 
 import edu.tcu.cs.projectpulse.section.dto.SectionDetailResponse;
+import edu.tcu.cs.projectpulse.section.dto.SectionRequest;
 import edu.tcu.cs.projectpulse.section.dto.SectionResponse;
 import edu.tcu.cs.projectpulse.system.Result;
 import edu.tcu.cs.projectpulse.system.StatusCode;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,6 +19,13 @@ public class SectionController {
 
     public SectionController(SectionService sectionService) {
         this.sectionService = sectionService;
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public Result create(@Valid @RequestBody SectionRequest request) {
+        SectionDetailResponse section = sectionService.create(request);
+        return new Result(true, StatusCode.SUCCESS, "Section created successfully", section);
     }
 
     @GetMapping

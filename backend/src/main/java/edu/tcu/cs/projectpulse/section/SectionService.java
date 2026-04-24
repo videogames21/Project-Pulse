@@ -1,7 +1,12 @@
 package edu.tcu.cs.projectpulse.section;
 
+import edu.tcu.cs.projectpulse.rubric.CriterionEntity;
+import edu.tcu.cs.projectpulse.rubric.RubricEntity;
+import edu.tcu.cs.projectpulse.rubric.RubricNotFoundException;
 import edu.tcu.cs.projectpulse.rubric.RubricRepository;
+import edu.tcu.cs.projectpulse.rubric.dto.CriterionRequest;
 import edu.tcu.cs.projectpulse.section.dto.SectionDetailResponse;
+import edu.tcu.cs.projectpulse.section.dto.SectionRequest;
 import edu.tcu.cs.projectpulse.section.dto.SectionResponse;
 import edu.tcu.cs.projectpulse.team.TeamEntity;
 import edu.tcu.cs.projectpulse.team.TeamRepository;
@@ -11,6 +16,7 @@ import edu.tcu.cs.projectpulse.user.UserRole;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -28,6 +34,48 @@ public class SectionService {
         this.teamRepository = teamRepository;
         this.userRepository = userRepository;
         this.rubricRepository = rubricRepository;
+    }
+
+    @Transactional
+    public SectionDetailResponse create(SectionRequest request) {
+        if (sectionRepository.existsByName(request.name())) {
+            throw new SectionNameConflictException(request.name());
+        }
+
+        SectionEntity section = new SectionEntity();
+        section.setName(request.name());
+        section.setStartDate(request.startDate());
+        section.setEndDate(request.endDate());
+
+        if (request.rubricId() != null) {
+            RubricEntity original = rubricRepository.findById(request.rubricId())
+                    .orElseThrow(() -> new RubricNotFoundException(request.rubricId()));
+
+            if (request.criteria() != null && !request.criteria().isEmpty()) {
+                RubricEntity copy = new RubricEntity();
+                String baseName = "Copy of " + original.getName();
+                String copyName = baseName;
+                int suffix = 2;
+                while (rubricRepository.existsByName(copyName)) {
+                    copyName = baseName + " (" + suffix++ + ")";
+                }
+                copy.setName(copyName);
+                for (CriterionRequest cr : request.criteria()) {
+                    CriterionEntity criterion = new CriterionEntity();
+                    criterion.setName(cr.name());
+                    criterion.setDescription(cr.description());
+                    criterion.setMaxScore(cr.maxScore());
+                    copy.addCriterion(criterion);
+                }
+                RubricEntity saved = rubricRepository.save(copy);
+                section.setRubricId(saved.getId());
+            } else {
+                section.setRubricId(original.getId());
+            }
+        }
+
+        SectionEntity saved = sectionRepository.save(section);
+        return findSectionById(saved.getId());
     }
 
     public List<SectionResponse> findAll(String name) {
