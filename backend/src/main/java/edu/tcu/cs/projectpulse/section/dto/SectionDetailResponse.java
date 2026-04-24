@@ -13,5 +13,5 @@ public record SectionDetailResponse(
         List<String> studentsNotOnTeam,
         String rubricName
 ) {
-    public record TeamSummary(Long id, String name) {}
+    public record TeamSummary(Long id, String name, List<String> students, List<String> instructors) {}
 }

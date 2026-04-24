@@ -70,6 +70,8 @@ onMounted(async () => {
             <thead>
               <tr>
                 <th>Team Name</th>
+                <th>Students</th>
+                <th>Instructors</th>
               </tr>
             </thead>
             <tbody>
@@ -80,6 +82,14 @@ onMounted(async () => {
                 @click="router.push(`/admin/teams/${t.id}`)"
               >
                 <td>{{ t.name }}</td>
+                <td>
+                  <span v-if="(t.students ?? []).length === 0" class="muted">—</span>
+                  <span v-else>{{ (t.students ?? []).join(', ') }}</span>
+                </td>
+                <td>
+                  <span v-if="(t.instructors ?? []).length === 0" class="muted">—</span>
+                  <span v-else>{{ (t.instructors ?? []).join(', ') }}</span>
+                </td>
               </tr>
             </tbody>
           </table>

@@ -1,6 +1,8 @@
 package edu.tcu.cs.projectpulse.section;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.tcu.cs.projectpulse.rubric.RubricEntity;
+import edu.tcu.cs.projectpulse.rubric.RubricRepository;
 import edu.tcu.cs.projectpulse.team.TeamEntity;
 import edu.tcu.cs.projectpulse.team.TeamRepository;
 import edu.tcu.cs.projectpulse.user.UserEntity;
@@ -20,8 +22,10 @@ import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -39,6 +43,9 @@ class SectionControllerIntegrationTest {
     @Autowired
     UserRepository userRepository;
 
+    @Autowired
+    RubricRepository rubricRepository;
+
     MockMvc mockMvc;
 
     ObjectMapper objectMapper = new ObjectMapper();
@@ -49,6 +56,7 @@ class SectionControllerIntegrationTest {
         userRepository.deleteAll();
         teamRepository.deleteAll();
         sectionRepository.deleteAll();
+        rubricRepository.deleteAll();
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -81,6 +89,41 @@ class SectionControllerIntegrationTest {
         u.setEmail(email);
         u.setRole(UserRole.STUDENT);
         return userRepository.save(u).getId();
+    }
+
+    private Long createInstructor(String name, String email) {
+        UserEntity u = new UserEntity();
+        u.setName(name);
+        u.setEmail(email);
+        u.setRole(UserRole.INSTRUCTOR);
+        return userRepository.save(u).getId();
+    }
+
+    /**
+     * Simulates the effect of UC-19 (Admin assigns instructor to team) by
+     * directly setting teamId on the instructor entity. This helper is
+     * intentionally endpoint-agnostic so these tests remain valid regardless
+     * of how Angel's UC-19 endpoint is shaped.
+     */
+    private void assignInstructorToTeam(Long instructorId, Long teamId) {
+        UserEntity instructor = userRepository.findById(instructorId).orElseThrow();
+        instructor.setTeamId(teamId);
+        userRepository.save(instructor);
+    }
+
+    private Long createRubric(String name) {
+        RubricEntity r = new RubricEntity();
+        r.setName(name);
+        return rubricRepository.save(r).getId();
+    }
+
+    private SectionEntity createSectionWithRubric(String name, Long rubricId) {
+        SectionEntity s = new SectionEntity();
+        s.setName(name);
+        s.setStartDate(LocalDate.of(2025, 8, 25));
+        s.setEndDate(LocalDate.of(2026, 5, 10));
+        s.setRubricId(rubricId);
+        return sectionRepository.save(s);
     }
 
     // ── GET /api/v1/sections (no filter) ─────────────────────────────────────
@@ -256,6 +299,96 @@ class SectionControllerIntegrationTest {
     }
 
     @Test
+    void findSectionById_teamWithNoMembers_studentsAndInstructorsAreEmpty() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        createTeam("Team Alpha", "2025-2026");
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams[0].students", hasSize(0)))
+                .andExpect(jsonPath("$.data.teams[0].instructors", hasSize(0)));
+    }
+
+    @Test
+    void findSectionById_teamWithAssignedStudents_studentsListedInTeamSummary() throws Exception {
+        SectionEntity saved    = createSection("2025-2026");
+        Long teamId            = createTeamAndReturnId("Team Alpha", "2025-2026");
+        Long aliceId           = createStudent("Alice Chen", "alice@tcu.edu");
+        Long bobId             = createStudent("Bob Smith",  "bob@tcu.edu");
+
+        mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("studentIds", List.of(aliceId, bobId)))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams[0].students", hasSize(2)))
+                .andExpect(jsonPath("$.data.teams[0].students",
+                        containsInAnyOrder("Alice Chen", "Bob Smith")))
+                .andExpect(jsonPath("$.data.teams[0].instructors", hasSize(0)));
+    }
+
+    @Test
+    void findSectionById_teamWithAssignedInstructor_instructorsListedInTeamSummary() throws Exception {
+        SectionEntity saved  = createSection("2025-2026");
+        Long teamId          = createTeamAndReturnId("Team Alpha", "2025-2026");
+        Long drSmithId       = createInstructor("Dr. Smith", "smith@tcu.edu");
+
+        // Simulates UC-19: Admin assigns Dr. Smith to a team
+        assignInstructorToTeam(drSmithId, teamId);
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams[0].instructors", hasSize(1)))
+                .andExpect(jsonPath("$.data.teams[0].instructors[0]").value("Dr. Smith"))
+                .andExpect(jsonPath("$.data.teams[0].students", hasSize(0)));
+    }
+
+    @Test
+    void findSectionById_teamMembersSortedAlphabetically() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        Long teamId         = createTeamAndReturnId("Team Alpha", "2025-2026");
+        Long zoeId          = createStudent("Zoe Adams",  "zoe@tcu.edu");
+        Long aliceId        = createStudent("Alice Chen", "alice@tcu.edu");
+
+        mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("studentIds", List.of(zoeId, aliceId)))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams[0].students[0]").value("Alice Chen"))
+                .andExpect(jsonPath("$.data.teams[0].students[1]").value("Zoe Adams"));
+    }
+
+    @Test
+    void findSectionById_membersIsolatedBetweenTeams() throws Exception {
+        SectionEntity saved  = createSection("2025-2026");
+        Long teamAlphaId     = createTeamAndReturnId("Team Alpha", "2025-2026");
+        Long teamBetaId      = createTeamAndReturnId("Team Beta",  "2025-2026");
+        Long aliceId         = createStudent("Alice Chen", "alice@tcu.edu");
+        Long bobId           = createStudent("Bob Smith",  "bob@tcu.edu");
+
+        mockMvc.perform(post("/api/v1/teams/" + teamAlphaId + "/students")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("studentIds", List.of(aliceId)))))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/teams/" + teamBetaId + "/students")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("studentIds", List.of(bobId)))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams[0].name").value("Team Alpha"))
+                .andExpect(jsonPath("$.data.teams[0].students", contains("Alice Chen")))
+                .andExpect(jsonPath("$.data.teams[1].name").value("Team Beta"))
+                .andExpect(jsonPath("$.data.teams[1].students", contains("Bob Smith")));
+    }
+
+    @Test
     void findSectionById_teamsFromOtherSectionNotIncluded() throws Exception {
         SectionEntity target = createSection("2025-2026");
         createSection("2024-2025");
@@ -281,7 +414,7 @@ class SectionControllerIntegrationTest {
     }
 
     @Test
-    void findSectionById_noUsers_studentsNotOnTeamIsEmptyArray() throws Exception {
+    void findSectionById_noUsers_studentsAndInstructorsNotOnTeamAreEmpty() throws Exception {
         SectionEntity saved = createSection("2025-2026");
 
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
@@ -299,6 +432,103 @@ class SectionControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.rubricName").doesNotExist());
+    }
+
+    // ── UC-3: instructorsNotOnTeam ──────────���─────────────────────────────────
+
+    @Test
+    void findSectionById_unassignedInstructors_appearsInInstructorsNotOnTeam() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        createInstructor("Dr. Smith", "smith@tcu.edu");
+        createInstructor("Dr. Jones", "jones@tcu.edu");
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam", hasSize(2)))
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam",
+                        containsInAnyOrder("Dr. Smith", "Dr. Jones")));
+    }
+
+    @Test
+    void findSectionById_instructorsNotOnTeamSortedAlphabetically() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        createInstructor("Dr. Zhang", "zhang@tcu.edu");
+        createInstructor("Dr. Adams", "adams@tcu.edu");
+        createInstructor("Dr. Miller", "miller@tcu.edu");
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam", hasSize(3)))
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam[0]").value("Dr. Adams"))
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam[1]").value("Dr. Miller"))
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam[2]").value("Dr. Zhang"));
+    }
+
+    @Test
+    void findSectionById_assignedInstructorNotInInstructorsNotOnTeam() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        Long teamId      = createTeamAndReturnId("Team Alpha", "2025-2026");
+        Long drSmithId   = createInstructor("Dr. Smith", "smith@tcu.edu");
+        createInstructor("Dr. Jones", "jones@tcu.edu");
+
+        // Simulates UC-19: Admin assigns Dr. Smith to a team
+        assignInstructorToTeam(drSmithId, teamId);
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam", hasSize(1)))
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam[0]").value("Dr. Jones"));
+    }
+
+    @Test
+    void findSectionById_studentsNotIncludedInInstructorsNotOnTeam() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        createStudent("Alice Chen", "alice@tcu.edu");
+        createInstructor("Dr. Smith", "smith@tcu.edu");
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam", hasSize(1)))
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam[0]").value("Dr. Smith"))
+                .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(1)))
+                .andExpect(jsonPath("$.data.studentsNotOnTeam[0]").value("Alice Chen"));
+    }
+
+    // ── UC-3: rubricName ──────────────────────────────────────────────────────
+
+    @Test
+    void findSectionById_withLinkedRubric_returnsRubricName() throws Exception {
+        Long rubricId    = createRubric("Peer Evaluation Rubric");
+        SectionEntity saved = createSectionWithRubric("2025-2026", rubricId);
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rubricName").value("Peer Evaluation Rubric"));
+    }
+
+    @Test
+    void findSectionById_noRubricLinked_rubricNameIsNull() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rubricName").doesNotExist());
+    }
+
+    @Test
+    void findSectionById_differentSectionsHaveDifferentRubrics() throws Exception {
+        Long rubricA = createRubric("Rubric A");
+        Long rubricB = createRubric("Rubric B");
+        SectionEntity section1 = createSectionWithRubric("2025-2026", rubricA);
+        SectionEntity section2 = createSectionWithRubric("2024-2025", rubricB);
+
+        mockMvc.perform(get("/api/v1/sections/{id}", section1.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rubricName").value("Rubric A"));
+
+        mockMvc.perform(get("/api/v1/sections/{id}", section2.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rubricName").value("Rubric B"));
     }
 
     @Test
@@ -439,13 +669,215 @@ class SectionControllerIntegrationTest {
                 .andExpect(status().isOk());
 
         // Remove Alice from the team via the UC-12 endpoint
-        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                        .delete("/api/v1/teams/" + teamId + "/students/" + aliceId))
+        mockMvc.perform(delete("/api/v1/teams/" + teamId + "/students/" + aliceId))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(1)))
                 .andExpect(jsonPath("$.data.studentsNotOnTeam[0]").value("Alice Chen"));
+    }
+
+    // ── UC-10 + UC-3 cross-module: team edit/delete reflected in section view ──
+
+    @Test
+    void findSectionById_teamRenamedViaApi_sectionDetailReflectsNewName() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        Long teamId = createTeamAndReturnId("Old Name", "2025-2026");
+
+        var body = Map.of("name", "New Name", "sectionName", "2025-2026",
+                "description", "Updated", "websiteUrl", "");
+        mockMvc.perform(put("/api/v1/teams/" + teamId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams", hasSize(1)))
+                .andExpect(jsonPath("$.data.teams[0].name").value("New Name"));
+    }
+
+    @Test
+    void findSections_teamRenamedViaApi_listReflectsNewName() throws Exception {
+        createSection("2025-2026");
+        Long teamId = createTeamAndReturnId("Old Name", "2025-2026");
+
+        var body = Map.of("name", "New Name", "sectionName", "2025-2026",
+                "description", "Updated", "websiteUrl", "");
+        mockMvc.perform(put("/api/v1/teams/" + teamId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/sections"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].teamNames", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].teamNames[0]").value("New Name"));
+    }
+
+    @Test
+    void findSectionById_teamMovedToOtherSection_disappearsFromOriginalSection() throws Exception {
+        SectionEntity original = createSection("2025-2026");
+        createSection("2024-2025");
+        Long teamId = createTeamAndReturnId("Team Alpha", "2025-2026");
+
+        var body = Map.of("name", "Team Alpha", "sectionName", "2024-2025",
+                "description", "", "websiteUrl", "");
+        mockMvc.perform(put("/api/v1/teams/" + teamId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/sections/{id}", original.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams", hasSize(0)));
+    }
+
+    @Test
+    void findSectionById_teamDeletedViaApi_notIncludedInSectionDetail() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        Long teamId = createTeamAndReturnId("Team Alpha", "2025-2026");
+
+        mockMvc.perform(delete("/api/v1/teams/" + teamId))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams", hasSize(0)));
+    }
+
+    @Test
+    void findSections_teamDeletedViaApi_notIncludedInSectionList() throws Exception {
+        createSection("2025-2026");
+        Long teamId = createTeamAndReturnId("Team Alpha", "2025-2026");
+
+        mockMvc.perform(delete("/api/v1/teams/" + teamId))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/sections"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].teamNames", hasSize(0)));
+    }
+
+    @Test
+    void findSectionById_teamDeletedWithStudents_studentsReturnToStudentsNotOnTeam() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        Long teamId  = createTeamAndReturnId("Team Alpha", "2025-2026");
+        Long aliceId = createStudent("Alice Chen", "alice@tcu.edu");
+        Long bobId   = createStudent("Bob Smith",  "bob@tcu.edu");
+
+        mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("studentIds", List.of(aliceId, bobId)))))
+                .andExpect(status().isOk());
+
+        // Before delete: both students assigned, so studentsNotOnTeam is empty
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(0)));
+
+        // Delete the team — UC-10 / UC-14 service unassigns students automatically
+        mockMvc.perform(delete("/api/v1/teams/" + teamId))
+                .andExpect(status().isOk());
+
+        // After delete: both students are unassigned and appear in studentsNotOnTeam
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(2)))
+                .andExpect(jsonPath("$.data.studentsNotOnTeam",
+                        containsInAnyOrder("Alice Chen", "Bob Smith")));
+    }
+
+    // ── UC-19 + UC-3 cross-module: instructor assigned to team via UC-19 ──────
+    // These tests simulate the effect of UC-19 (Angel's work) using the
+    // repository directly so they remain valid regardless of the endpoint shape.
+
+    @Test
+    void findSectionById_instructorAssignedViaUC19_appearsInTeamAndLeavesUnassignedList() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        Long teamId         = createTeamAndReturnId("Team Alpha", "2025-2026");
+        Long drSmithId      = createInstructor("Dr. Smith", "smith@tcu.edu");
+
+        // Before UC-19: Dr. Smith appears in instructorsNotOnTeam, not in team
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam", hasSize(1)))
+                .andExpect(jsonPath("$.data.teams[0].instructors", hasSize(0)));
+
+        // UC-19 assigns Dr. Smith to Team Alpha
+        assignInstructorToTeam(drSmithId, teamId);
+
+        // After UC-19: Dr. Smith is in team summary and gone from unassigned list
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam", hasSize(0)))
+                .andExpect(jsonPath("$.data.teams[0].instructors", hasSize(1)))
+                .andExpect(jsonPath("$.data.teams[0].instructors[0]").value("Dr. Smith"));
+    }
+
+    @Test
+    void findSectionById_multipleInstructors_onlyUnassignedAppearInUnassignedList() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        Long teamId         = createTeamAndReturnId("Team Alpha", "2025-2026");
+        Long drSmithId      = createInstructor("Dr. Smith", "smith@tcu.edu");
+        createInstructor("Dr. Jones", "jones@tcu.edu");
+
+        // UC-19 assigns only Dr. Smith
+        assignInstructorToTeam(drSmithId, teamId);
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam", hasSize(1)))
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam[0]").value("Dr. Jones"))
+                .andExpect(jsonPath("$.data.teams[0].instructors", hasSize(1)))
+                .andExpect(jsonPath("$.data.teams[0].instructors[0]").value("Dr. Smith"));
+    }
+
+    @Test
+    void findSectionById_instructorAndStudentOnSameTeam_listedInCorrectColumns() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        Long teamId         = createTeamAndReturnId("Team Alpha", "2025-2026");
+        Long aliceId        = createStudent("Alice Chen", "alice@tcu.edu");
+        Long drSmithId      = createInstructor("Dr. Smith", "smith@tcu.edu");
+
+        mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("studentIds", List.of(aliceId)))))
+                .andExpect(status().isOk());
+        assignInstructorToTeam(drSmithId, teamId); // UC-19
+
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams[0].students", contains("Alice Chen")))
+                .andExpect(jsonPath("$.data.teams[0].instructors", contains("Dr. Smith")))
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam", hasSize(0)))
+                .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(0)));
+    }
+
+    @Test
+    void findSectionById_teamDeletedWithInstructor_instructorReturnsToUnassignedList() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+        Long teamId         = createTeamAndReturnId("Team Alpha", "2025-2026");
+        Long drSmithId      = createInstructor("Dr. Smith", "smith@tcu.edu");
+
+        assignInstructorToTeam(drSmithId, teamId); // UC-19
+
+        // Confirm Dr. Smith is on the team
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams[0].instructors", hasSize(1)))
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam", hasSize(0)));
+
+        // UC-14 deletes the team — service already unassigns all members regardless of role
+        mockMvc.perform(delete("/api/v1/teams/" + teamId))
+                .andExpect(status().isOk());
+
+        // Dr. Smith should be back in the unassigned list
+        mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams", hasSize(0)))
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam", hasSize(1)))
+                .andExpect(jsonPath("$.data.instructorsNotOnTeam[0]").value("Dr. Smith"));
     }
 }

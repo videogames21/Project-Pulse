@@ -18,6 +18,9 @@ public class SectionEntity {
 
     private LocalDate endDate;
 
+    @Column(name = "rubric_id")
+    private Long rubricId;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -29,4 +32,7 @@ public class SectionEntity {
 
     public LocalDate getEndDate() { return endDate; }
     public void setEndDate(LocalDate endDate) { this.endDate = endDate; }
+
+    public Long getRubricId() { return rubricId; }
+    public void setRubricId(Long rubricId) { this.rubricId = rubricId; }
 }
