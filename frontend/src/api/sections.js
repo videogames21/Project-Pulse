@@ -7,4 +7,8 @@ export const sectionsApi = {
       : '/api/v1/sections'
     return api.get(path)
   },
+
+  getById(id) {
+    return api.get(`/api/v1/sections/${id}`)
+  },
 }
