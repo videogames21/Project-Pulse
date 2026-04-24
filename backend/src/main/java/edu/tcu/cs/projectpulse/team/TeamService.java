@@ -3,6 +3,7 @@ package edu.tcu.cs.projectpulse.team;
 import edu.tcu.cs.projectpulse.user.UserEntity;
 import edu.tcu.cs.projectpulse.user.UserNotFoundException;
 import edu.tcu.cs.projectpulse.user.UserRepository;
+import edu.tcu.cs.projectpulse.user.UserRole;
 import edu.tcu.cs.projectpulse.team.dto.TeamRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -39,6 +40,18 @@ public class TeamService {
         return teamRepository.save(team);
     }
 
+    public TeamEntity update(Long id, TeamRequest request) {
+        TeamEntity team = findById(id);
+        if (teamRepository.existsByNameAndIdNot(request.name(), id)) {
+            throw new TeamNameConflictException(request.name());
+        }
+        team.setName(request.name());
+        team.setDescription(request.description());
+        team.setWebsiteUrl(request.websiteUrl());
+        team.setSectionName(request.sectionName());
+        return teamRepository.save(team);
+    }
+
     public List<TeamEntity> findAll(String sectionName, String teamName) {
         Specification<TeamEntity> spec = Specification
                 .where(TeamSpec.hasSectionName(sectionName))
@@ -48,8 +61,63 @@ public class TeamService {
         return teamRepository.findAll(spec, sort);
     }
 
+    @Transactional
+    public void delete(Long id) {
+        TeamEntity team = findById(id);
+        userRepository.findByTeamId(id).forEach(u -> {
+            u.setTeamId(null);
+            userRepository.save(u);
+        });
+        teamRepository.delete(team);
+    }
+
     public List<UserEntity> findStudentsByTeamId(Long teamId) {
-        return userRepository.findByTeamId(teamId);
+        return userRepository.findByTeamId(teamId).stream()
+                .filter(u -> u.getRole() == UserRole.STUDENT)
+                .toList();
+    }
+
+    public List<UserEntity> findInstructorsByTeamId(Long teamId) {
+        return userRepository.findByTeamId(teamId).stream()
+                .filter(u -> u.getRole() == UserRole.INSTRUCTOR)
+                .toList();
+    }
+
+    @Transactional
+    public void removeInstructor(Long teamId, Long instructorId) {
+        teamRepository.findById(teamId)
+                .orElseThrow(() -> new TeamNotFoundException(teamId));
+
+        UserEntity instructor = userRepository.findById(instructorId)
+                .orElseThrow(() -> new UserNotFoundException(instructorId));
+
+        if (!teamId.equals(instructor.getTeamId())) {
+            throw new IllegalStateException("Instructor is not assigned to this team.");
+        }
+
+        instructor.setTeamId(null);
+        userRepository.save(instructor);
+    }
+
+    @Transactional
+    public void assignInstructor(Long teamId, Long instructorId) {
+        teamRepository.findById(teamId)
+                .orElseThrow(() -> new TeamNotFoundException(teamId));
+
+        UserEntity instructor = userRepository.findById(instructorId)
+                .orElseThrow(() -> new UserNotFoundException(instructorId));
+
+        if (instructor.getRole() != UserRole.INSTRUCTOR) {
+            throw new IllegalArgumentException("User " + instructorId + " is not an instructor.");
+        }
+
+        if (instructor.getTeamId() != null) {
+            throw new IllegalStateException(
+                    "Instructor " + instructor.getName() + " is already assigned to a team. Remove them first.");
+        }
+
+        instructor.setTeamId(teamId);
+        userRepository.save(instructor);
     }
 
     @Transactional

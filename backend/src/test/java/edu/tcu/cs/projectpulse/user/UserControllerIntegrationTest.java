@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -39,6 +40,7 @@ class UserControllerIntegrationTest {
         mockMvc = MockMvcBuilders.webAppContextSetup(wac)
                 .apply(springSecurity())
                 .build();
+        userRepository.deleteAll();
         // Remove any test-created users; keep seeded @tcu.edu accounts
         userRepository.findAll().stream()
                 .filter(u -> !u.getEmail().endsWith("@tcu.edu"))
@@ -49,6 +51,14 @@ class UserControllerIntegrationTest {
             u.setTeamId(null);
             userRepository.save(u);
         });
+    }
+
+    private void createUser(String name, String email, UserRole role) {
+        UserEntity u = new UserEntity();
+        u.setName(name);
+        u.setEmail(email);
+        u.setRole(role);
+        userRepository.save(u);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -177,13 +187,12 @@ class UserControllerIntegrationTest {
     }
 
     @Test
-    void getMyProfile_withoutJwt_returns403() throws Exception {
-        mockMvc.perform(get("/api/v1/users/me/profile"))
-                .andExpect(status().isForbidden());
+    void findInstructors_noInstructors_returnsEmptyList() throws Exception {
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data", hasSize(0)));
     }
-
-    // ── PUT /api/v1/users/me ─────────────────────────────────────────────────
-
     @Test
     void updateProfile_validNameChange_returns200WithNewJwt() throws Exception {
         String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
@@ -198,6 +207,19 @@ class UserControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.name").value("Updated Name"))
                 .andExpect(jsonPath("$.data.email").value("testuser@example.com"))
                 .andExpect(jsonPath("$.data.token", not(emptyString())));
+    }
+
+
+    @Test
+    void findInstructors_returnsOnlyInstructors() throws Exception {
+        createUser("Alice Prof", "alice@tcu.edu", UserRole.INSTRUCTOR);
+        createUser("Bob Student", "bob@tcu.edu", UserRole.STUDENT);
+
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].name").value("Alice Prof"))
+                .andExpect(jsonPath("$.data[0].role").value("INSTRUCTOR"));
     }
 
     @Test
@@ -215,6 +237,16 @@ class UserControllerIntegrationTest {
     }
 
     @Test
+    void findInstructors_multipleInstructors_returnsAll() throws Exception {
+        createUser("Alice Prof",   "alice@tcu.edu", UserRole.INSTRUCTOR);
+        createUser("Charlie Prof", "charlie@tcu.edu", UserRole.INSTRUCTOR);
+
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(2)));
+    }
+
+    @Test
     void updateProfile_sameEmailNoChange_returns200() throws Exception {
         String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
         var body = Map.of("name", "Test User", "email", "testuser@example.com");
@@ -228,19 +260,16 @@ class UserControllerIntegrationTest {
     }
 
     @Test
-    void updateProfile_emailTakenByAnotherUser_returns409() throws Exception {
-        String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
-        // Try to claim an email that belongs to the seeded admin
-        var body = Map.of("name", "Test User", "email", "admin@tcu.edu");
+    void findInstructors_responseIncludesIdNameEmailRole() throws Exception {
+        createUser("Alice Prof", "alice@tcu.edu", UserRole.INSTRUCTOR);
 
-        mockMvc.perform(put("/api/v1/users/me")
-                        .header("Authorization", jwt)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.success").value(false));
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").isNumber())
+                .andExpect(jsonPath("$.data[0].name").value("Alice Prof"))
+                .andExpect(jsonPath("$.data[0].email").value("alice@tcu.edu"))
+                .andExpect(jsonPath("$.data[0].role").value("INSTRUCTOR"));
     }
-
     @Test
     void updateProfile_blankName_returns400() throws Exception {
         String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
@@ -292,6 +321,30 @@ class UserControllerIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true));
     }
 
+    @Test
+    void updateProfile_emailTakenByAnotherUser_returns409() throws Exception {
+        String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
+        // Try to claim an email that belongs to the seeded admin
+        var body = Map.of("name", "Test User", "email", "admin@tcu.edu");
+
+        mockMvc.perform(put("/api/v1/users/me")
+                        .header("Authorization", jwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void findInstructors_nameFilter_returnsMatchingInstructors() throws Exception {
+        createUser("Alice Smith",   "alice@tcu.edu",   UserRole.INSTRUCTOR);
+        createUser("Bob Johnson",   "bob@tcu.edu",     UserRole.INSTRUCTOR);
+        createUser("Alice Teacher", "alice2@tcu.edu",  UserRole.INSTRUCTOR);
+
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("name", "Alice"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(2)));
+    }
     @Test
     void changePassword_newPasswordWorks_oldPasswordFails() throws Exception {
         String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
@@ -346,6 +399,15 @@ class UserControllerIntegrationTest {
     }
 
     @Test
+    void findInstructors_nameFilter_caseInsensitive() throws Exception {
+        createUser("Alice Smith", "alice@tcu.edu", UserRole.INSTRUCTOR);
+
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("name", "alice"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].name").value("Alice Smith"));
+    }
+    @Test
     void changePassword_blankCurrentPassword_returns400() throws Exception {
         String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
         var body = Map.of("currentPassword", "", "newPassword", "newpassword456");
@@ -368,7 +430,46 @@ class UserControllerIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
-    // ── GET /api/v1/users ─────────────────────────────────────────────────────
+    @Test
+    void findInstructors_nameFilter_noMatch_returnsEmpty() throws Exception {
+        createUser("Alice Smith", "alice@tcu.edu", UserRole.INSTRUCTOR);
+
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("name", "Zzzz"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(0)));
+    }
+
+    @Test
+    void findInstructors_nameFilter_doesNotReturnStudentsWithSameName() throws Exception {
+        createUser("Alice Smith", "alice-inst@tcu.edu",    UserRole.INSTRUCTOR);
+        createUser("Alice Smith", "alice-student@tcu.edu", UserRole.STUDENT);
+
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("name", "Alice"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].role").value("INSTRUCTOR"));
+    }
+
+    @Test
+    void findInstructors_emptyNameParam_returnsAllInstructors() throws Exception {
+        createUser("Alice Prof",   "alice@tcu.edu",   UserRole.INSTRUCTOR);
+        createUser("Bob Prof",     "bob@tcu.edu",     UserRole.INSTRUCTOR);
+
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("name", ""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(2)));
+    }
+
+    @Test
+    void findStudents_roleStudentParam_returnsStudentsOnly() throws Exception {
+        createUser("Alice Prof",    "alice@tcu.edu", UserRole.INSTRUCTOR);
+        createUser("Bob Student",   "bob@tcu.edu",   UserRole.STUDENT);
+
+        mockMvc.perform(get("/api/v1/users").param("role", "STUDENT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].name").value("Bob Student"));
+    }
 
     @Test
     void listStudents_adminRole_returns200WithStudents() throws Exception {

@@ -2,6 +2,7 @@ package edu.tcu.cs.projectpulse.team;
 
 import edu.tcu.cs.projectpulse.system.Result;
 import edu.tcu.cs.projectpulse.system.StatusCode;
+import edu.tcu.cs.projectpulse.team.dto.AssignInstructorRequest;
 import edu.tcu.cs.projectpulse.team.dto.AssignStudentsRequest;
 import edu.tcu.cs.projectpulse.team.dto.TeamResponse;
 import edu.tcu.cs.projectpulse.user.dto.UserResponse;
@@ -46,6 +47,18 @@ public class TeamController {
         return new Result(true, StatusCode.SUCCESS, "Teams retrieved successfully", teams);
     }
 
+    @PutMapping("/{id}")
+    public Result update(@PathVariable Long id, @Valid @RequestBody TeamRequest request) {
+        TeamResponse response = toResponse(teamService.update(id, request));
+        return new Result(true, StatusCode.SUCCESS, "Team updated successfully", response);
+    }
+
+    @DeleteMapping("/{id}")
+    public Result delete(@PathVariable Long id) {
+        teamService.delete(id);
+        return new Result(true, StatusCode.SUCCESS, "Team deleted successfully");
+    }
+
     @PostMapping("/{id}/students")
     public Result assignStudents(@PathVariable Long id,
                                  @Valid @RequestBody AssignStudentsRequest request) {
@@ -59,8 +72,26 @@ public class TeamController {
         return new Result(true, StatusCode.SUCCESS, "Student removed from team");
     }
 
+    @PostMapping("/{id}/instructors")
+    public Result assignInstructor(@PathVariable Long id,
+                                   @Valid @RequestBody AssignInstructorRequest request) {
+        teamService.assignInstructor(id, request.instructorId());
+        return new Result(true, StatusCode.SUCCESS, "Instructor assigned successfully");
+    }
+
+    @DeleteMapping("/{id}/instructors/{instructorId}")
+    public Result removeInstructor(@PathVariable Long id, @PathVariable Long instructorId) {
+        teamService.removeInstructor(id, instructorId);
+        return new Result(true, StatusCode.SUCCESS, "Instructor removed from team");
+    }
+
     private TeamResponse toResponse(TeamEntity entity) {
         List<UserResponse> students = teamService.findStudentsByTeamId(entity.getId())
+                .stream()
+                .map(u -> new UserResponse(u.getId(), u.getName(), u.getEmail(), u.getRole().name(), u.getTeamId()))
+                .toList();
+
+        List<UserResponse> instructors = teamService.findInstructorsByTeamId(entity.getId())
                 .stream()
                 .map(u -> new UserResponse(u.getId(), u.getName(), u.getEmail(), u.getRole().name(), u.getTeamId()))
                 .toList();
@@ -71,7 +102,8 @@ public class TeamController {
                 entity.getDescription(),
                 entity.getWebsiteUrl(),
                 entity.getSectionName(),
-                students
+                students,
+                instructors
         );
     }
 }

@@ -1,15 +1,29 @@
 const BASE = 'http://localhost:8080'
 
-async function request(method, path, body) {
-  const token = localStorage.getItem('token')
-  const headers = { 'Content-Type': 'application/json' }
-  if (token) headers['Authorization'] = `Bearer ${token}`
+async function request(method, path, body, params) {
+  // 1. Build the URL with query parameters (from Snippet 2)
+  let url = `${BASE}${path}`;
+  if (params && Object.keys(params).length > 0) {
+    url += '?' + new URLSearchParams(params).toString();
+  }
 
-  const res = await fetch(`${BASE}${path}`, {
+  // 2. Build the Headers with the Authorization token (from Snippet 1)
+  const token = localStorage.getItem('token');
+  const headers = { 'Content-Type': 'application/json' };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  // 3. Execute the fetch request using the dynamic URL and Headers
+  const res = await fetch(url, {
     method,
-    headers,
+    headers, // <-- Fixed: Pass the built headers object here instead of hardcoding it
     body: body ? JSON.stringify(body) : undefined,
-  })
+  });
+
+  // return res; (Assuming your function finishes out down here)
+}
 
   const json = await res.json()
 
@@ -31,7 +45,7 @@ async function request(method, path, body) {
 }
 
 export const api = {
-  get:    (path)        => request('GET',    path),
+  get:    (path, params) => request('GET',    path, null, params),
   post:   (path, body)  => request('POST',   path, body),
   put:    (path, body)  => request('PUT',    path, body),
   patch:  (path, body)  => request('PATCH',  path, body),

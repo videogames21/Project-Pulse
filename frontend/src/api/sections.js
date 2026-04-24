@@ -7,4 +7,16 @@ export const sectionsApi = {
       : '/api/v1/sections'
     return api.get(path)
   },
+
+  getById(id) {
+    return api.get(`/api/v1/sections/${id}`)
+  },
+
+  create(payload) {
+    return api.post('/api/v1/sections', payload)
+  },
+
+  update(id, payload) {
+    return api.put(`/api/v1/sections/${id}`, payload)
+  },
 }

@@ -20,6 +20,9 @@ public class SectionEntity {
 
     private Long instructorId;
 
+    @Column(name = "rubric_id")
+    private Long rubricId;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -34,4 +37,7 @@ public class SectionEntity {
 
     public Long getInstructorId() { return instructorId; }
     public void setInstructorId(Long instructorId) { this.instructorId = instructorId; }
+
+    public Long getRubricId() { return rubricId; }
+    public void setRubricId(Long rubricId) { this.rubricId = rubricId; }
 }

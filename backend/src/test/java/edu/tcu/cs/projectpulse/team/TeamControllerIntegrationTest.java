@@ -2,6 +2,9 @@ package edu.tcu.cs.projectpulse.team;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.tcu.cs.projectpulse.TestJwtHelper;
+import edu.tcu.cs.projectpulse.user.UserEntity;
+import edu.tcu.cs.projectpulse.user.UserRepository;
+import edu.tcu.cs.projectpulse.user.UserRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +14,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,6 +29,7 @@ class TeamControllerIntegrationTest {
     @Autowired WebApplicationContext wac;
     @Autowired TeamRepository teamRepository;
     @Autowired TestJwtHelper jwtHelper;
+    @Autowired UserRepository userRepository;
 
     ObjectMapper objectMapper = new ObjectMapper();
     MockMvc mockMvc;
@@ -34,6 +39,7 @@ class TeamControllerIntegrationTest {
         mockMvc = MockMvcBuilders.webAppContextSetup(wac)
                 .apply(springSecurity())
                 .build();
+        userRepository.deleteAll();
         teamRepository.deleteAll();
     }
 
@@ -48,6 +54,14 @@ class TeamControllerIntegrationTest {
                         .header("Authorization", jwtHelper.adminToken()))
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(response).path("data").path("id").longValue();
+    }
+
+    private Long createStudent() {
+        UserEntity u = new UserEntity();
+        u.setName("Test Student");
+        u.setEmail("student@tcu.edu");
+        u.setRole(UserRole.STUDENT);
+        return userRepository.save(u).getId();
     }
 
     // ── GET /api/v1/teams ────────────────────────────────────────────────────
@@ -191,5 +205,100 @@ class TeamControllerIntegrationTest {
                         .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    // ── PUT /api/v1/teams/{id} ───────────────────────────────────────────────
+
+    @Test
+    void update_validPayload_returns200AndUpdates() throws Exception {
+        Long id = createTeam("Old Name", "CS4910");
+
+        var body = Map.of("name", "New Name", "sectionName", "CS4911",
+                "description", "Updated desc", "websiteUrl", "");
+
+        mockMvc.perform(put("/api/v1/teams/" + id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.name").value("New Name"))
+                .andExpect(jsonPath("$.data.sectionName").value("CS4911"));
+    }
+
+    @Test
+    void update_sameName_returns200() throws Exception {
+        Long id = createTeam("Same Name", "CS4910");
+
+        var body = Map.of("name", "Same Name", "sectionName", "CS4910");
+
+        mockMvc.perform(put("/api/v1/teams/" + id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("Same Name"));
+    }
+
+    @Test
+    void update_nameConflictWithOtherTeam_returns409() throws Exception {
+        createTeam("Taken Name", "CS4910");
+        Long id = createTeam("My Team", "CS4910");
+
+        var body = Map.of("name", "Taken Name", "sectionName", "CS4910");
+
+        mockMvc.perform(put("/api/v1/teams/" + id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void update_notFound_returns404() throws Exception {
+        var body = Map.of("name", "Doesn't Matter", "sectionName", "CS4910");
+
+        mockMvc.perform(put("/api/v1/teams/9999")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    // ── DELETE /api/v1/teams/{id} ────────────────────────────────────────────
+
+    @Test
+    void delete_found_returns200AndRemoves() throws Exception {
+        Long id = createTeam("Team To Delete", "CS4910");
+
+        mockMvc.perform(delete("/api/v1/teams/" + id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        assertThat(teamRepository.count()).isEqualTo(0);
+    }
+
+    @Test
+    void delete_notFound_returns404() throws Exception {
+        mockMvc.perform(delete("/api/v1/teams/9999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void delete_withStudents_studentsReturnToUnassigned() throws Exception {
+        Long id = createTeam("Team To Delete", "CS4910");
+
+        // Assign a student via the assign endpoint
+        mockMvc.perform(post("/api/v1/teams/" + id + "/students")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("studentIds", List.of(createStudent())))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/v1/teams/" + id))
+                .andExpect(status().isOk());
+
+        // Student should now be unassigned
+        mockMvc.perform(get("/api/v1/users?unassigned=true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)));
     }
 }

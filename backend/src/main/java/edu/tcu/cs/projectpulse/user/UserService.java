@@ -128,6 +128,15 @@ public class UserService {
         userRepository.save(user);
     }
 
+    public List<UserResponse> findInstructors(String name) {
+        List<UserEntity> instructors = (name != null && !name.isBlank())
+                ? userRepository.findByRoleAndNameContainingIgnoreCase(UserRole.INSTRUCTOR, name)
+                : userRepository.findByRole(UserRole.INSTRUCTOR);
+        return instructors.stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     public UserResponse toResponse(UserEntity entity) {
         return new UserResponse(
                 entity.getId(),

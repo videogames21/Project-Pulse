@@ -48,8 +48,13 @@ public class UserController {
     }
 
     @GetMapping
-    public Result findStudents(@RequestParam(required = false) String role,
-                               @RequestParam(required = false) Boolean unassigned) {
+    public Result findUsers(@RequestParam(required = false) String role,
+                            @RequestParam(required = false) String name,
+                            @RequestParam(required = false) Boolean unassigned) {
+        if ("INSTRUCTOR".equalsIgnoreCase(role)) {
+            List<UserResponse> instructors = userService.findInstructors(name);
+            return new Result(true, StatusCode.SUCCESS, "Instructors retrieved successfully", instructors);
+        }
         List<UserResponse> students = Boolean.TRUE.equals(unassigned)
                 ? userService.findUnassignedStudents()
                 : userService.findStudents();
