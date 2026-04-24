@@ -39,6 +39,18 @@ public class TeamService {
         return teamRepository.save(team);
     }
 
+    public TeamEntity update(Long id, TeamRequest request) {
+        TeamEntity team = findById(id);
+        if (teamRepository.existsByNameAndIdNot(request.name(), id)) {
+            throw new TeamNameConflictException(request.name());
+        }
+        team.setName(request.name());
+        team.setDescription(request.description());
+        team.setWebsiteUrl(request.websiteUrl());
+        team.setSectionName(request.sectionName());
+        return teamRepository.save(team);
+    }
+
     public List<TeamEntity> findAll(String sectionName, String teamName) {
         Specification<TeamEntity> spec = Specification
                 .where(TeamSpec.hasSectionName(sectionName))
@@ -46,6 +58,16 @@ public class TeamService {
 
         Sort sort = Sort.by(Sort.Order.desc("sectionName"), Sort.Order.asc("name"));
         return teamRepository.findAll(spec, sort);
+    }
+
+    @Transactional
+    public void delete(Long id) {
+        TeamEntity team = findById(id);
+        userRepository.findByTeamId(id).forEach(u -> {
+            u.setTeamId(null);
+            userRepository.save(u);
+        });
+        teamRepository.delete(team);
     }
 
     public List<UserEntity> findStudentsByTeamId(Long teamId) {
