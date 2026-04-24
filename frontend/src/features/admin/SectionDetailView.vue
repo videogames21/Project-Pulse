@@ -34,6 +34,11 @@ onMounted(async () => {
         class="btn btn-primary btn-sm"
         @click="router.push(`/admin/sections/${route.params.id}/edit`)"
       >Edit Section</button>
+      <button
+        v-if="section"
+        class="btn btn-secondary btn-sm"
+        @click="router.push(`/admin/sections/${route.params.id}/active-weeks`)"
+      >Active Weeks</button>
     </div>
 
     <div v-if="error" class="alert alert-error">{{ error }}</div>

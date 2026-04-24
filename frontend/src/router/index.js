@@ -16,7 +16,8 @@ import TeamsView          from '../features/admin/TeamsView.vue'
 import TeamDetailView     from '../features/admin/TeamDetailView.vue'
 import RubricsView        from '../features/admin/RubricsView.vue'
 import InvitationsView    from '../features/admin/InvitationsView.vue'
-import AssignStudentsView from '../features/admin/AssignStudentsView.vue'
+import AssignStudentsView      from '../features/admin/AssignStudentsView.vue'
+import ManageActiveWeeksView  from '../features/admin/ManageActiveWeeksView.vue'
 
 const routes = [
   { path: '/',                  redirect: '/login' },
@@ -42,7 +43,8 @@ const routes = [
   { path: '/admin/teams/:id',   component: TeamDetailView,    meta: { role: 'admin' } },
   { path: '/admin/rubrics',     component: RubricsView,       meta: { role: 'admin' } },
   { path: '/admin/invitations',      component: InvitationsView,    meta: { role: 'admin' } },
-  { path: '/admin/assign-students', component: AssignStudentsView, meta: { role: 'admin' } },
+  { path: '/admin/assign-students',           component: AssignStudentsView,     meta: { role: 'admin' } },
+  { path: '/admin/sections/:id/active-weeks', component: ManageActiveWeeksView,  meta: { role: 'admin' } },
 ]
 
 const router = createRouter({
