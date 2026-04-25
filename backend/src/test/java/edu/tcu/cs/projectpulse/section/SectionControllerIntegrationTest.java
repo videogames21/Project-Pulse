@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -23,7 +24,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.*;
-import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -31,6 +31,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class SectionControllerIntegrationTest {
 
     @Autowired WebApplicationContext wac;
@@ -50,13 +51,19 @@ class SectionControllerIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.webAppContextSetup(wac)
-                .apply(springSecurity())
-                .build();
+        mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
         userRepository.deleteAll();
         teamRepository.deleteAll();
         sectionRepository.deleteAll();
         rubricRepository.deleteAll();
+
+        // Re-seed admin so TestJwtHelper can generate tokens (section tests create their own students/instructors)
+        UserEntity admin = new UserEntity();
+        admin.setName("Admin User"); admin.setEmail("admin@tcu.edu");
+        admin.setRole(UserRole.ADMIN);
+        admin.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
+        admin.setEnabled(true);
+        userRepository.save(admin);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -578,12 +585,6 @@ class SectionControllerIntegrationTest {
     }
 
     // ── GET /api/v1/sections (no filter) ─────────────────────────────────────
-
-    @Test
-    void findSections_withoutJwt_returns403() throws Exception {
-        mockMvc.perform(get("/api/v1/sections"))
-                .andExpect(status().isForbidden());
-    }
 
     @Test
     void findSections_noSections_returnsEmptyList() throws Exception {

@@ -39,8 +39,29 @@ class TeamControllerIntegrationTest {
         mockMvc = MockMvcBuilders.webAppContextSetup(wac)
                 .apply(springSecurity())
                 .build();
-        userRepository.deleteAll();
         teamRepository.deleteAll();
+        userRepository.deleteAll();
+
+        UserEntity admin = new UserEntity();
+        admin.setName("Admin User"); admin.setEmail("admin@tcu.edu");
+        admin.setRole(UserRole.ADMIN);
+        admin.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
+        admin.setEnabled(true);
+        userRepository.save(admin);
+
+        UserEntity instructor = new UserEntity();
+        instructor.setName("Dr. Johnson"); instructor.setEmail("johnson@tcu.edu");
+        instructor.setRole(UserRole.INSTRUCTOR);
+        instructor.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
+        instructor.setEnabled(true);
+        userRepository.save(instructor);
+
+        UserEntity alice = new UserEntity();
+        alice.setName("Alice Chen"); alice.setEmail("alice@tcu.edu");
+        alice.setRole(UserRole.STUDENT);
+        alice.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
+        alice.setEnabled(true);
+        userRepository.save(alice);
     }
 
     // ── Helper ───────────────────────────────────────────────────────────────
@@ -61,6 +82,8 @@ class TeamControllerIntegrationTest {
         u.setName("Test Student");
         u.setEmail("student@tcu.edu");
         u.setRole(UserRole.STUDENT);
+        u.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
+        u.setEnabled(true);
         return userRepository.save(u).getId();
     }
 
@@ -218,7 +241,8 @@ class TeamControllerIntegrationTest {
 
         mockMvc.perform(put("/api/v1/teams/" + id)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
+                        .content(objectMapper.writeValueAsString(body))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.name").value("New Name"))
@@ -233,7 +257,8 @@ class TeamControllerIntegrationTest {
 
         mockMvc.perform(put("/api/v1/teams/" + id)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
+                        .content(objectMapper.writeValueAsString(body))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.name").value("Same Name"));
     }
@@ -247,7 +272,8 @@ class TeamControllerIntegrationTest {
 
         mockMvc.perform(put("/api/v1/teams/" + id)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
+                        .content(objectMapper.writeValueAsString(body))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -258,7 +284,8 @@ class TeamControllerIntegrationTest {
 
         mockMvc.perform(put("/api/v1/teams/9999")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
+                        .content(objectMapper.writeValueAsString(body))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -269,7 +296,8 @@ class TeamControllerIntegrationTest {
     void delete_found_returns200AndRemoves() throws Exception {
         Long id = createTeam("Team To Delete", "CS4910");
 
-        mockMvc.perform(delete("/api/v1/teams/" + id))
+        mockMvc.perform(delete("/api/v1/teams/" + id)
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
@@ -278,7 +306,8 @@ class TeamControllerIntegrationTest {
 
     @Test
     void delete_notFound_returns404() throws Exception {
-        mockMvc.perform(delete("/api/v1/teams/9999"))
+        mockMvc.perform(delete("/api/v1/teams/9999")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -290,15 +319,18 @@ class TeamControllerIntegrationTest {
         // Assign a student via the assign endpoint
         mockMvc.perform(post("/api/v1/teams/" + id + "/students")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("studentIds", List.of(createStudent())))))
+                        .content(objectMapper.writeValueAsString(Map.of("studentIds", List.of(createStudent()))))
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(delete("/api/v1/teams/" + id))
+        mockMvc.perform(delete("/api/v1/teams/" + id)
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk());
 
-        // Student should now be unassigned
-        mockMvc.perform(get("/api/v1/users?unassigned=true"))
+        // Student should now be unassigned (alice from setUp + this test student = 2)
+        mockMvc.perform(get("/api/v1/users?unassigned=true")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data", hasSize(1)));
+                .andExpect(jsonPath("$.data", hasSize(2)));
     }
 }

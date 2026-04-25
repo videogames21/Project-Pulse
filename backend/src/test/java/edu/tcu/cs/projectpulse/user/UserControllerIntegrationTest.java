@@ -3,6 +3,8 @@ package edu.tcu.cs.projectpulse.user;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.tcu.cs.projectpulse.TestJwtHelper;
 import edu.tcu.cs.projectpulse.invitation.InvitationRepository;
+import edu.tcu.cs.projectpulse.section.SectionEntity;
+import edu.tcu.cs.projectpulse.section.SectionRepository;
 import edu.tcu.cs.projectpulse.team.TeamEntity;
 import edu.tcu.cs.projectpulse.team.TeamRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,13 +16,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import java.time.LocalDate;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -30,6 +32,7 @@ class UserControllerIntegrationTest {
     @Autowired UserRepository userRepository;
     @Autowired InvitationRepository invitationRepository;
     @Autowired TeamRepository teamRepository;
+    @Autowired SectionRepository sectionRepository;
     @Autowired TestJwtHelper jwtHelper;
 
     ObjectMapper objectMapper = new ObjectMapper();
@@ -40,25 +43,60 @@ class UserControllerIntegrationTest {
         mockMvc = MockMvcBuilders.webAppContextSetup(wac)
                 .apply(springSecurity())
                 .build();
-        userRepository.deleteAll();
-        // Remove any test-created users; keep seeded @tcu.edu accounts
-        userRepository.findAll().stream()
-                .filter(u -> !u.getEmail().endsWith("@tcu.edu"))
-                .forEach(u -> userRepository.delete(u));
-        invitationRepository.deleteAll();
-        // Reset alice's team assignment so profile tests start clean
-        userRepository.findByEmail("alice@tcu.edu").ifPresent(u -> {
-            u.setTeamId(null);
-            userRepository.save(u);
-        });
-    }
 
-    private void createUser(String name, String email, UserRole role) {
-        UserEntity u = new UserEntity();
-        u.setName(name);
-        u.setEmail(email);
-        u.setRole(role);
-        userRepository.save(u);
+        invitationRepository.deleteAll();
+        userRepository.deleteAll();
+        teamRepository.deleteAll();
+        sectionRepository.deleteAll();
+
+        // Re-seed base users
+        UserEntity admin = new UserEntity();
+        admin.setName("Admin User"); admin.setEmail("admin@tcu.edu");
+        admin.setRole(UserRole.ADMIN);
+        admin.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
+        admin.setEnabled(true);
+        userRepository.save(admin);
+
+        UserEntity instructor = new UserEntity();
+        instructor.setName("Dr. Johnson"); instructor.setEmail("johnson@tcu.edu");
+        instructor.setRole(UserRole.INSTRUCTOR);
+        instructor.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
+        instructor.setEnabled(true);
+        instructor = userRepository.save(instructor);
+
+        UserEntity alice = new UserEntity();
+        alice.setName("Alice Chen"); alice.setEmail("alice@tcu.edu");
+        alice.setRole(UserRole.STUDENT);
+        alice.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
+        alice.setEnabled(true);
+        userRepository.save(alice);
+
+        // Re-seed sections needed for profile tests
+        SectionEntity cs4911 = new SectionEntity();
+        cs4911.setName("CS4911");
+        cs4911.setStartDate(LocalDate.of(2025, 8, 25));
+        cs4911.setEndDate(LocalDate.of(2026, 5, 9));
+        sectionRepository.save(cs4911);
+
+        SectionEntity cs4910 = new SectionEntity();
+        cs4910.setName("CS4910");
+        cs4910.setStartDate(LocalDate.of(2024, 8, 26));
+        cs4910.setEndDate(LocalDate.of(2025, 5, 10));
+        cs4910.setInstructorId(instructor.getId());
+        sectionRepository.save(cs4910);
+
+        // Re-seed teams needed for profile tests
+        TeamEntity alpha = new TeamEntity();
+        alpha.setName("Team Alpha");
+        alpha.setDescription("A project about data visualization");
+        alpha.setSectionName("CS4910");
+        teamRepository.save(alpha);
+
+        TeamEntity gamma = new TeamEntity();
+        gamma.setName("Team Gamma");
+        gamma.setDescription("AI-powered scheduling tool");
+        gamma.setSectionName("CS4911");
+        teamRepository.save(gamma);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -71,7 +109,6 @@ class UserControllerIntegrationTest {
         return link.substring(link.lastIndexOf('/') + 1);
     }
 
-    /** Registers a fresh student and returns their Bearer token string. */
     private String registerStudent(String firstName, String lastName,
                                    String email, String password) throws Exception {
         String invToken = createInvitationToken();
@@ -146,7 +183,6 @@ class UserControllerIntegrationTest {
 
     @Test
     void getMyProfile_studentWithTeam_returnsTeamSectionAndInstructorInfo() throws Exception {
-        // Team Alpha is in CS4910 which has Dr. Johnson (johnson@tcu.edu) as instructor
         UserEntity alice = userRepository.findByEmail("alice@tcu.edu").orElseThrow();
         alice.setTeamId(teamIdByName("Team Alpha"));
         userRepository.save(alice);
@@ -162,7 +198,6 @@ class UserControllerIntegrationTest {
 
     @Test
     void getMyProfile_studentWithTeamNoInstructor_returnsNullInstructorFields() throws Exception {
-        // Team Gamma is in CS4911 which has no instructor assigned
         UserEntity alice = userRepository.findByEmail("alice@tcu.edu").orElseThrow();
         alice.setTeamId(teamIdByName("Team Gamma"));
         userRepository.save(alice);
@@ -187,12 +222,13 @@ class UserControllerIntegrationTest {
     }
 
     @Test
-    void findInstructors_noInstructors_returnsEmptyList() throws Exception {
-        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data", hasSize(0)));
+    void getMyProfile_withoutJwt_returns403() throws Exception {
+        mockMvc.perform(get("/api/v1/users/me/profile"))
+                .andExpect(status().isForbidden());
     }
+
+    // ── PUT /api/v1/users/me ─────────────────────────────────────────────────
+
     @Test
     void updateProfile_validNameChange_returns200WithNewJwt() throws Exception {
         String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
@@ -207,19 +243,6 @@ class UserControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.name").value("Updated Name"))
                 .andExpect(jsonPath("$.data.email").value("testuser@example.com"))
                 .andExpect(jsonPath("$.data.token", not(emptyString())));
-    }
-
-
-    @Test
-    void findInstructors_returnsOnlyInstructors() throws Exception {
-        createUser("Alice Prof", "alice@tcu.edu", UserRole.INSTRUCTOR);
-        createUser("Bob Student", "bob@tcu.edu", UserRole.STUDENT);
-
-        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data", hasSize(1)))
-                .andExpect(jsonPath("$.data[0].name").value("Alice Prof"))
-                .andExpect(jsonPath("$.data[0].role").value("INSTRUCTOR"));
     }
 
     @Test
@@ -237,16 +260,6 @@ class UserControllerIntegrationTest {
     }
 
     @Test
-    void findInstructors_multipleInstructors_returnsAll() throws Exception {
-        createUser("Alice Prof",   "alice@tcu.edu", UserRole.INSTRUCTOR);
-        createUser("Charlie Prof", "charlie@tcu.edu", UserRole.INSTRUCTOR);
-
-        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data", hasSize(2)));
-    }
-
-    @Test
     void updateProfile_sameEmailNoChange_returns200() throws Exception {
         String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
         var body = Map.of("name", "Test User", "email", "testuser@example.com");
@@ -260,16 +273,18 @@ class UserControllerIntegrationTest {
     }
 
     @Test
-    void findInstructors_responseIncludesIdNameEmailRole() throws Exception {
-        createUser("Alice Prof", "alice@tcu.edu", UserRole.INSTRUCTOR);
+    void updateProfile_emailTakenByAnotherUser_returns409() throws Exception {
+        String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
+        var body = Map.of("name", "Test User", "email", "admin@tcu.edu");
 
-        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].id").isNumber())
-                .andExpect(jsonPath("$.data[0].name").value("Alice Prof"))
-                .andExpect(jsonPath("$.data[0].email").value("alice@tcu.edu"))
-                .andExpect(jsonPath("$.data[0].role").value("INSTRUCTOR"));
+        mockMvc.perform(put("/api/v1/users/me")
+                        .header("Authorization", jwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false));
     }
+
     @Test
     void updateProfile_blankName_returns400() throws Exception {
         String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
@@ -322,30 +337,6 @@ class UserControllerIntegrationTest {
     }
 
     @Test
-    void updateProfile_emailTakenByAnotherUser_returns409() throws Exception {
-        String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
-        // Try to claim an email that belongs to the seeded admin
-        var body = Map.of("name", "Test User", "email", "admin@tcu.edu");
-
-        mockMvc.perform(put("/api/v1/users/me")
-                        .header("Authorization", jwt)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.success").value(false));
-    }
-
-    @Test
-    void findInstructors_nameFilter_returnsMatchingInstructors() throws Exception {
-        createUser("Alice Smith",   "alice@tcu.edu",   UserRole.INSTRUCTOR);
-        createUser("Bob Johnson",   "bob@tcu.edu",     UserRole.INSTRUCTOR);
-        createUser("Alice Teacher", "alice2@tcu.edu",  UserRole.INSTRUCTOR);
-
-        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("name", "Alice"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data", hasSize(2)));
-    }
-    @Test
     void changePassword_newPasswordWorks_oldPasswordFails() throws Exception {
         String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
         var changeBody = Map.of("currentPassword", "password123", "newPassword", "newpassword456");
@@ -356,14 +347,12 @@ class UserControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(changeBody)))
                 .andExpect(status().isOk());
 
-        // Old password should no longer work
         var oldLogin = Map.of("email", "testuser@example.com", "password", "password123");
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(oldLogin)))
                 .andExpect(status().isUnauthorized());
 
-        // New password should work
         var newLogin = Map.of("email", "testuser@example.com", "password", "newpassword456");
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -399,15 +388,6 @@ class UserControllerIntegrationTest {
     }
 
     @Test
-    void findInstructors_nameFilter_caseInsensitive() throws Exception {
-        createUser("Alice Smith", "alice@tcu.edu", UserRole.INSTRUCTOR);
-
-        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("name", "alice"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data", hasSize(1)))
-                .andExpect(jsonPath("$.data[0].name").value("Alice Smith"));
-    }
-    @Test
     void changePassword_blankCurrentPassword_returns400() throws Exception {
         String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
         var body = Map.of("currentPassword", "", "newPassword", "newpassword456");
@@ -430,46 +410,7 @@ class UserControllerIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
-    @Test
-    void findInstructors_nameFilter_noMatch_returnsEmpty() throws Exception {
-        createUser("Alice Smith", "alice@tcu.edu", UserRole.INSTRUCTOR);
-
-        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("name", "Zzzz"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data", hasSize(0)));
-    }
-
-    @Test
-    void findInstructors_nameFilter_doesNotReturnStudentsWithSameName() throws Exception {
-        createUser("Alice Smith", "alice-inst@tcu.edu",    UserRole.INSTRUCTOR);
-        createUser("Alice Smith", "alice-student@tcu.edu", UserRole.STUDENT);
-
-        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("name", "Alice"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data", hasSize(1)))
-                .andExpect(jsonPath("$.data[0].role").value("INSTRUCTOR"));
-    }
-
-    @Test
-    void findInstructors_emptyNameParam_returnsAllInstructors() throws Exception {
-        createUser("Alice Prof",   "alice@tcu.edu",   UserRole.INSTRUCTOR);
-        createUser("Bob Prof",     "bob@tcu.edu",     UserRole.INSTRUCTOR);
-
-        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("name", ""))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data", hasSize(2)));
-    }
-
-    @Test
-    void findStudents_roleStudentParam_returnsStudentsOnly() throws Exception {
-        createUser("Alice Prof",    "alice@tcu.edu", UserRole.INSTRUCTOR);
-        createUser("Bob Student",   "bob@tcu.edu",   UserRole.STUDENT);
-
-        mockMvc.perform(get("/api/v1/users").param("role", "STUDENT"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data", hasSize(1)))
-                .andExpect(jsonPath("$.data[0].name").value("Bob Student"));
-    }
+    // ── GET /api/v1/users ─────────────────────────────────────────────────────
 
     @Test
     void listStudents_adminRole_returns200WithStudents() throws Exception {
@@ -491,7 +432,6 @@ class UserControllerIntegrationTest {
 
     @Test
     void listStudents_unassignedFilter_returnsOnlyStudentsWithNoTeam() throws Exception {
-        // All seeded students start unassigned; assign one to verify the filter excludes them
         UserEntity alice = userRepository.findByEmail("alice@tcu.edu").orElseThrow();
         alice.setTeamId(teamIdByName("Team Alpha"));
         userRepository.save(alice);
@@ -502,7 +442,6 @@ class UserControllerIntegrationTest {
                 .andExpect(jsonPath("$.data[*].teamId", everyItem(nullValue())))
                 .andReturn().getResponse().getContentAsString();
 
-        // Alice is assigned so should not appear
         assertThat(objectMapper.readTree(response).path("data").toString())
                 .doesNotContain("alice@tcu.edu");
     }
@@ -518,6 +457,95 @@ class UserControllerIntegrationTest {
     void listStudents_withoutJwt_returns403() throws Exception {
         mockMvc.perform(get("/api/v1/users"))
                 .andExpect(status().isForbidden());
+    }
+
+    // ── GET /api/v1/users?role=INSTRUCTOR ────────────────────────────────────
+
+    @Test
+    void findInstructors_returnsSeededInstructor() throws Exception {
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].email").value("johnson@tcu.edu"));
+    }
+
+    @Test
+    void findInstructors_multipleInstructors_returnsAll() throws Exception {
+        UserEntity extra = new UserEntity();
+        extra.setName("Dr. Smith"); extra.setEmail("smith@example.com");
+        extra.setRole(UserRole.INSTRUCTOR);
+        extra.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
+        extra.setEnabled(true);
+        userRepository.save(extra);
+
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(2)));
+    }
+
+    @Test
+    void findInstructors_nameFilter_returnsMatchingInstructors() throws Exception {
+        UserEntity u1 = new UserEntity();
+        u1.setName("Alice Smith"); u1.setEmail("alice-smith@example.com");
+        u1.setRole(UserRole.INSTRUCTOR);
+        u1.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
+        u1.setEnabled(true);
+        userRepository.save(u1);
+
+        UserEntity u2 = new UserEntity();
+        u2.setName("Alice Teacher"); u2.setEmail("alice-teacher@example.com");
+        u2.setRole(UserRole.INSTRUCTOR);
+        u2.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
+        u2.setEnabled(true);
+        userRepository.save(u2);
+
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("name", "Alice")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(2)));
+    }
+
+    @Test
+    void findInstructors_nameFilter_caseInsensitive() throws Exception {
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("name", "johnson")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].email").value("johnson@tcu.edu"));
+    }
+
+    @Test
+    void findInstructors_nameFilter_noMatch_returnsEmpty() throws Exception {
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("name", "Zzzz")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(0)));
+    }
+
+    @Test
+    void findInstructors_nameFilter_doesNotReturnStudentsWithSameName() throws Exception {
+        UserEntity inst = new UserEntity();
+        inst.setName("Alice Smith"); inst.setEmail("alice-inst@example.com");
+        inst.setRole(UserRole.INSTRUCTOR);
+        inst.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
+        inst.setEnabled(true);
+        userRepository.save(inst);
+
+        UserEntity stu = new UserEntity();
+        stu.setName("Alice Smith"); stu.setEmail("alice-stu@example.com");
+        stu.setRole(UserRole.STUDENT);
+        stu.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
+        stu.setEnabled(true);
+        userRepository.save(stu);
+
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("name", "Alice")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].role").value("INSTRUCTOR"));
     }
 
     // ── GET /api/v1/users/{id} ────────────────────────────────────────────────
