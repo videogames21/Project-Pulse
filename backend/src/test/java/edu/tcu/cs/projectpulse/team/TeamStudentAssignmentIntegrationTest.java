@@ -299,6 +299,22 @@ class TeamStudentAssignmentIntegrationTest {
                 .andExpect(jsonPath("$.success").value(false));
     }
 
+    @Test
+    void removeStudent_userIsNotAStudent_returns400() throws Exception {
+        Long teamId = createTeam("Team Alpha");
+        UserEntity instructor = new UserEntity();
+        instructor.setFirstName("Carol");
+        instructor.setLastName("White");
+        instructor.setEmail("carol@tcu.edu");
+        instructor.setRole(UserRole.INSTRUCTOR);
+        instructor.setTeamId(teamId);
+        Long instructorId = userRepository.save(instructor).getId();
+
+        mockMvc.perform(delete("/api/v1/teams/" + teamId + "/students/" + instructorId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
     // ── GET /api/v1/teams/{id} (students embedded) ──────────────────────────
 
     @Test

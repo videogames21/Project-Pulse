@@ -1,113 +1,278 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import AppLayout from '../../components/AppLayout.vue'
-import { MOCK_WAR, WAR_CATEGORIES, WAR_STATUSES } from '../../data/mockData'
+import { useAuthStore } from '../../stores/auth'
+import { warsApi } from '../../api/wars.js'
+import { WAR_CATEGORIES } from '../../data/mockData'
 
-const entries    = ref([...MOCK_WAR])
-const filterWeek = ref('all')
-const showModal  = ref(false)
-const editing    = ref(null)
-const flash      = ref('')
+const auth = useAuthStore()
 
-const blankForm = () => ({ week: 1, category: 'DEVELOPMENT', description: '', plannedHours: '', actualHours: '', status: 'In Progress' })
-const form = ref(blankForm())
+// ── Status options ─────────────────────────────────────────────────────────────
+const WAR_STATUSES = [
+  { value: 'IN_PROGRESS',   label: 'In Progress'   },
+  { value: 'UNDER_TESTING', label: 'Under Testing' },
+  { value: 'DONE',          label: 'Done'          },
+]
 
-const weeks    = computed(() => [...new Set(entries.value.map(e => e.week))].sort((a,b) => a-b))
-const filtered = computed(() => filterWeek.value === 'all' ? entries.value : entries.value.filter(e => e.week === Number(filterWeek.value)))
-
-const STATUS_CLS = { 'Done': 'badge-green', 'In Progress': 'badge-orange', 'Under Testing': 'badge-blue' }
-
-function openAdd() { form.value = blankForm(); editing.value = null; showModal.value = true }
-function openEdit(e) { form.value = { ...e }; editing.value = e.id; showModal.value = true }
-
-function save() {
-  if (!form.value.description.trim()) return
-  if (editing.value !== null) {
-    const i = entries.value.findIndex(e => e.id === editing.value)
-    entries.value[i] = { ...form.value, id: editing.value }
-    notify('Activity updated.')
-  } else {
-    const id = Math.max(0, ...entries.value.map(e => e.id)) + 1
-    entries.value.push({ ...form.value, id })
-    notify('Activity added.')
-  }
-  showModal.value = false
+const STATUS_CLS = {
+  IN_PROGRESS:   'badge-orange',
+  UNDER_TESTING: 'badge-blue',
+  DONE:          'badge-green',
 }
 
-function remove(id) { entries.value = entries.value.filter(e => e.id !== id) }
+function statusLabel(v) {
+  return WAR_STATUSES.find(s => s.value === v)?.label ?? v
+}
 
-function notify(msg) { flash.value = msg; setTimeout(() => flash.value = '', 3000) }
+// ── Week selection ─────────────────────────────────────────────────────────────
+
+function getRecentMondays(count = 12) {
+  const mondays = []
+  const today   = new Date()
+  const day     = today.getDay()
+  const daysToCurrentMonday = day === 0 ? 6 : day - 1
+  const currentMonday = new Date(today)
+  currentMonday.setDate(today.getDate() - daysToCurrentMonday)
+  // Include current week (students can add activities for the current week)
+  for (let i = 0; i < count; i++) {
+    const m = new Date(currentMonday)
+    m.setDate(currentMonday.getDate() - 7 * i)
+    mondays.push(m.toISOString().split('T')[0])
+  }
+  return mondays
+}
+
+const weekOptions   = getRecentMondays(12)
+const selectedWeek  = ref(weekOptions[0])   // default: current week
+
+// ── Data ───────────────────────────────────────────────────────────────────────
+
+const activities = ref([])
+const loading    = ref(false)
+const error      = ref('')
+const flash      = ref('')
+
+async function loadActivities() {
+  if (!auth.user?.id || !selectedWeek.value) return
+  loading.value = true
+  error.value   = ''
+  try {
+    const res = await warsApi.getWAR(auth.user.id, selectedWeek.value)
+    activities.value = res.data?.activities ?? []
+  } catch (e) {
+    error.value = e.message ?? 'Failed to load activities.'
+    activities.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+watch(selectedWeek, loadActivities)
+onMounted(loadActivities)
+
+// ── Stats ──────────────────────────────────────────────────────────────────────
+
+const totalPlanned = computed(() => activities.value.reduce((s, a) => s + Number(a.plannedHours ?? 0), 0).toFixed(1))
+const totalActual  = computed(() => activities.value.reduce((s, a) => s + Number(a.actualHours  ?? 0), 0).toFixed(1))
+
+// ── Modal ──────────────────────────────────────────────────────────────────────
+
+const showModal  = ref(false)
+const editingId  = ref(null)
+const saving     = ref(false)
+const saveError  = ref('')
+
+const blankForm = () => ({
+  category:     'DEVELOPMENT',
+  description:  '',
+  plannedHours: '',
+  actualHours:  '',
+  status:       'IN_PROGRESS',
+})
+
+const form = ref(blankForm())
+
+function openAdd() {
+  form.value    = blankForm()
+  editingId.value = null
+  saveError.value = ''
+  showModal.value = true
+}
+
+function openEdit(a) {
+  form.value = {
+    category:     a.category,
+    description:  a.description,
+    plannedHours: String(a.plannedHours),
+    actualHours:  String(a.actualHours),
+    status:       a.status,
+  }
+  editingId.value = a.id
+  saveError.value = ''
+  showModal.value = true
+}
+
+async function save() {
+  if (!form.value.description.trim()) {
+    saveError.value = 'Description is required.'
+    return
+  }
+  saving.value    = true
+  saveError.value = ''
+  try {
+    const payload = {
+      category:     form.value.category,
+      description:  form.value.description.trim(),
+      plannedHours: Number(form.value.plannedHours),
+      actualHours:  Number(form.value.actualHours),
+      status:       form.value.status,
+    }
+    if (editingId.value !== null) {
+      await warsApi.updateActivity(auth.user.id, selectedWeek.value, editingId.value, payload)
+      notify('Activity updated.')
+    } else {
+      await warsApi.addActivity(auth.user.id, selectedWeek.value, payload)
+      notify('Activity added.')
+    }
+    showModal.value = false
+    await loadActivities()
+  } catch (e) {
+    saveError.value = e.message ?? 'Failed to save activity.'
+  } finally {
+    saving.value = false
+  }
+}
+
+async function remove(id) {
+  try {
+    await warsApi.deleteActivity(auth.user.id, selectedWeek.value, id)
+    notify('Activity deleted.')
+    await loadActivities()
+  } catch (e) {
+    error.value = e.message ?? 'Failed to delete activity.'
+  }
+}
+
+function notify(msg) {
+  flash.value = msg
+  setTimeout(() => { flash.value = '' }, 3000)
+}
 </script>
 
 <template>
   <AppLayout>
-    <div v-if="flash" class="alert alert-success">{{ flash }}</div>
+    <!-- Flash notification -->
+    <div v-if="flash" class="alert alert-success mb-4">{{ flash }}</div>
 
-    <div class="flex items-center justify-between mb-4">
+    <!-- Controls -->
+    <div class="flex items-center justify-between mb-4" style="flex-wrap:wrap;gap:12px">
       <div class="flex items-center gap-3">
-        <label style="margin:0">Week:</label>
-        <select v-model="filterWeek" style="width:auto;padding:6px 10px">
-          <option value="all">All weeks</option>
-          <option v-for="w in weeks" :key="w" :value="w">Week {{ w }}</option>
+        <label style="margin:0;font-weight:600">Week:</label>
+        <select v-model="selectedWeek" style="width:auto;padding:6px 10px">
+          <option v-for="w in weekOptions" :key="w" :value="w">{{ w }}</option>
         </select>
       </div>
       <button class="btn btn-primary" @click="openAdd">+ Add Activity</button>
     </div>
 
-    <div class="stats">
-      <div class="stat"><div class="stat-val">{{ filtered.length }}</div><div class="stat-lbl">Activities</div></div>
-      <div class="stat"><div class="stat-val">{{ filtered.reduce((s,e) => s + Number(e.plannedHours), 0) }}h</div><div class="stat-lbl">Planned</div></div>
-      <div class="stat"><div class="stat-val">{{ filtered.reduce((s,e) => s + Number(e.actualHours), 0) }}h</div><div class="stat-lbl">Actual</div></div>
-    </div>
+    <!-- Error -->
+    <div v-if="error" class="alert alert-error mb-4">{{ error }}</div>
 
-    <div v-if="filtered.length === 0" class="empty">
-      <div class="empty-icon">📋</div>
-      <p>No activities yet — click "Add Activity" to get started.</p>
-    </div>
+    <!-- Loading -->
+    <div v-if="loading" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</div>
 
-    <div v-else class="card" style="padding:0;overflow:hidden">
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Week</th><th>Category</th><th>Description</th><th>Planned</th><th>Actual</th><th>Status</th><th></th></tr></thead>
-          <tbody>
-            <tr v-for="e in filtered" :key="e.id">
-              <td><strong>Wk {{ e.week }}</strong></td>
-              <td><span class="badge badge-purple">{{ e.category }}</span></td>
-              <td>{{ e.description }}</td>
-              <td>{{ e.plannedHours }}h</td>
-              <td>{{ e.actualHours }}h</td>
-              <td><span :class="['badge', STATUS_CLS[e.status]]">{{ e.status }}</span></td>
-              <td>
-                <div class="flex gap-2">
-                  <button class="btn btn-secondary btn-sm" @click="openEdit(e)">Edit</button>
-                  <button class="btn btn-danger btn-sm" @click="remove(e.id)">Delete</button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+    <template v-else>
+      <!-- Stats -->
+      <div class="stats mb-4">
+        <div class="stat"><div class="stat-val">{{ activities.length }}</div><div class="stat-lbl">Activities</div></div>
+        <div class="stat"><div class="stat-val">{{ totalPlanned }}h</div><div class="stat-lbl">Planned</div></div>
+        <div class="stat"><div class="stat-val">{{ totalActual }}h</div><div class="stat-lbl">Actual</div></div>
       </div>
-    </div>
 
-    <!-- Modal -->
+      <!-- Empty state -->
+      <div v-if="activities.length === 0" class="empty">
+        <div class="empty-icon">📋</div>
+        <h3>No Activities Yet</h3>
+        <p class="muted mt-4">Click "Add Activity" to log your work for this week.</p>
+      </div>
+
+      <!-- Activity table -->
+      <div v-else class="card" style="padding:0;overflow:hidden">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Description</th>
+                <th>Planned</th>
+                <th>Actual</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="a in activities" :key="a.id">
+                <td><span class="badge badge-purple">{{ a.category }}</span></td>
+                <td>{{ a.description }}</td>
+                <td>{{ Number(a.plannedHours).toFixed(1) }}h</td>
+                <td>{{ Number(a.actualHours).toFixed(1) }}h</td>
+                <td><span :class="['badge', STATUS_CLS[a.status]]">{{ statusLabel(a.status) }}</span></td>
+                <td>
+                  <div class="flex gap-2">
+                    <button class="btn btn-secondary btn-sm" @click="openEdit(a)">Edit</button>
+                    <button class="btn btn-danger btn-sm" @click="remove(a.id)">Delete</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+
+    <!-- Add/Edit Modal -->
     <div v-if="showModal" class="overlay" @click.self="showModal = false">
       <div class="modal">
-        <div class="modal-head"><h3>{{ editing !== null ? 'Edit' : 'Add' }} Activity</h3><button class="modal-close" @click="showModal = false">×</button></div>
+        <div class="modal-head">
+          <h3>{{ editingId !== null ? 'Edit' : 'Add' }} Activity</h3>
+          <button class="modal-close" @click="showModal = false">×</button>
+        </div>
         <div class="modal-body">
           <div class="grid-2">
-            <div class="form-group"><label>Week</label><input type="number" v-model.number="form.week" min="1" max="20" /></div>
-            <div class="form-group"><label>Category</label><select v-model="form.category"><option v-for="c in WAR_CATEGORIES" :key="c">{{ c }}</option></select></div>
+            <div class="form-group">
+              <label>Category</label>
+              <select v-model="form.category">
+                <option v-for="c in WAR_CATEGORIES" :key="c" :value="c">{{ c }}</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select v-model="form.status">
+                <option v-for="s in WAR_STATUSES" :key="s.value" :value="s.value">{{ s.label }}</option>
+              </select>
+            </div>
           </div>
-          <div class="form-group"><label>Description</label><textarea v-model="form.description" placeholder="What did you work on?" /></div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea v-model="form.description" placeholder="What did you work on?" />
+          </div>
           <div class="grid-2">
-            <div class="form-group"><label>Planned Hours</label><input type="number" v-model="form.plannedHours" min="0" step="0.5" /></div>
-            <div class="form-group"><label>Actual Hours</label><input type="number" v-model="form.actualHours" min="0" step="0.5" /></div>
+            <div class="form-group">
+              <label>Planned Hours</label>
+              <input type="number" v-model="form.plannedHours" min="0.1" step="0.5" />
+            </div>
+            <div class="form-group">
+              <label>Actual Hours</label>
+              <input type="number" v-model="form.actualHours" min="0.1" step="0.5" />
+            </div>
           </div>
-          <div class="form-group"><label>Status</label><select v-model="form.status"><option v-for="s in WAR_STATUSES" :key="s">{{ s }}</option></select></div>
+          <div v-if="saveError" class="alert alert-error">{{ saveError }}</div>
         </div>
         <div class="modal-foot">
           <button class="btn btn-secondary" @click="showModal = false">Cancel</button>
-          <button class="btn btn-primary" @click="save">Save</button>
+          <button class="btn btn-primary" :disabled="saving" @click="save">
+            {{ saving ? 'Saving…' : 'Save' }}
+          </button>
         </div>
       </div>
     </div>

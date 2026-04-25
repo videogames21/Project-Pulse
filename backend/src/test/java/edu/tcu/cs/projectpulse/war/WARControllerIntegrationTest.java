@@ -177,10 +177,23 @@ class WARControllerIntegrationTest {
     }
 
     @Test
+    void addActivity_missingActualHours_returns400() throws Exception {
+        Long studentId = createStudent();
+        var body = Map.of("category", "DEVELOPMENT", "description", "desc",
+                "plannedHours", new BigDecimal("4.0"), "status", "DONE");
+
+        mockMvc.perform(post("/api/v1/wars/students/" + studentId + "/weeks/" + PAST_MONDAY + "/activities")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
     void addActivity_negativePlannedHours_returns400() throws Exception {
         Long studentId = createStudent();
         var body = Map.of("category", "DEVELOPMENT", "description", "desc",
-                "plannedHours", new BigDecimal("-1.0"), "status", "DONE");
+                "plannedHours", new BigDecimal("-1.0"), "actualHours", new BigDecimal("1.0"), "status", "DONE");
 
         mockMvc.perform(post("/api/v1/wars/students/" + studentId + "/weeks/" + PAST_MONDAY + "/activities")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -200,6 +213,7 @@ class WARControllerIntegrationTest {
                 "category", "TESTING",
                 "description", "Write unit tests",
                 "plannedHours", new BigDecimal("3.0"),
+                "actualHours", new BigDecimal("2.0"),
                 "status", "IN_PROGRESS"
         );
 
@@ -218,7 +232,7 @@ class WARControllerIntegrationTest {
         Long studentId = createStudent();
 
         var body = Map.of("category", "TESTING", "description", "desc",
-                "plannedHours", new BigDecimal("3.0"), "status", "DONE");
+                "plannedHours", new BigDecimal("3.0"), "actualHours", new BigDecimal("2.0"), "status", "DONE");
 
         mockMvc.perform(put("/api/v1/wars/students/" + studentId + "/weeks/" + PAST_MONDAY + "/activities/9999")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -233,7 +247,7 @@ class WARControllerIntegrationTest {
         addActivity(studentId, PAST_MONDAY);
 
         var body = Map.of("category", "TESTING", "description", "desc",
-                "plannedHours", new BigDecimal("3.0"), "status", "DONE");
+                "plannedHours", new BigDecimal("3.0"), "actualHours", new BigDecimal("2.0"), "status", "DONE");
 
         mockMvc.perform(put("/api/v1/wars/students/" + studentId + "/weeks/" + PAST_MONDAY + "/activities/9999")
                         .contentType(MediaType.APPLICATION_JSON)

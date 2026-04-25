@@ -280,6 +280,18 @@ class TeamInstructorAssignmentIntegrationTest {
     }
 
     @Test
+    void removeInstructor_userIsNotAnInstructor_returns400() throws Exception {
+        Long teamId   = createTeam("Team Alpha");
+        Long studentId = createStudent("Alice", "Chen", "alice@tcu.edu");
+        // Manually put the student on the team so the "not assigned to team" check doesn't fire first
+        userRepository.findById(studentId).ifPresent(u -> { u.setTeamId(teamId); userRepository.save(u); });
+
+        mockMvc.perform(delete("/api/v1/teams/{id}/instructors/{iid}", teamId, studentId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
     void assignInstructor_studentsNotAffected() throws Exception {
         Long teamId       = createTeam("Team Alpha");
         Long studentId    = createStudent("Alice", "Chen", "alice@tcu.edu");

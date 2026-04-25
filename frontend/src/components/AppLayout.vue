@@ -2,9 +2,11 @@
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useNotificationsStore } from '../stores/notifications'
 import { defaultRoute } from '../router/index'
 
 const auth   = useAuthStore()
+const notifs = useNotificationsStore()
 const router = useRouter()
 const route  = useRoute()
 
@@ -19,12 +21,12 @@ const NAV = {
     { path: '/team-war',       label: 'Team WAR Report',          icon: '📋' },
   ],
   admin: [
-    { path: '/admin/sections',     label: 'Sections',     icon: '🏛️' },
-    { path: '/admin/teams',        label: 'Teams',        icon: '👥' },
-    { path: '/admin/instructors',  label: 'Instructors',  icon: '🎓' },
-    { path: '/admin/rubrics',     label: 'Rubrics',     icon: '📝' },
-    { path: '/admin/invitations',      label: 'Invitations',      icon: '✉️' },
-    { path: '/admin/assign-students', label: 'Assign Students',  icon: '🎓' },
+    { path: '/admin/sections',      label: 'Sections',       icon: '🏛️' },
+    { path: '/admin/teams',         label: 'Teams',          icon: '👥' },
+    { path: '/admin/instructors',   label: 'Instructors',    icon: '🎓' },
+    { path: '/admin/rubrics',       label: 'Rubrics',        icon: '📝' },
+    { path: '/admin/invitations',   label: 'Invitations',    icon: '✉️' },
+    { path: '/admin/assign-students', label: 'Assign Students', icon: '🎓' },
   ],
 }
 
@@ -34,6 +36,11 @@ const pageTitle = computed(() => {
   const item = navItems.value.find(n => n.path === route.path)
   return item?.label ?? ''
 })
+
+const alertClass = (type) =>
+  type === 'warning' ? 'alert-warning' :
+  type === 'error'   ? 'alert-error'   :
+  type === 'success' ? 'alert-success' : 'alert-info'
 
 function logout() {
   auth.logout()
@@ -79,6 +86,23 @@ function logout() {
         <span class="topbar-title">{{ pageTitle }}</span>
         <span class="topbar-sub">{{ auth.user?.team ? auth.user.team + ' · ' : '' }}{{ auth.user?.section ?? '' }}</span>
       </header>
+
+      <!-- Persistent notifications -->
+      <div v-if="notifs.notifications.length" style="padding:0 24px;padding-top:16px">
+        <div
+          v-for="n in notifs.notifications"
+          :key="n.id"
+          :class="['alert', alertClass(n.type)]"
+          style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"
+        >
+          <span>{{ n.message }}</span>
+          <button
+            @click="notifs.dismiss(n.id)"
+            style="background:none;border:none;cursor:pointer;font-size:1.1rem;padding:0 4px;opacity:.7"
+          >×</button>
+        </div>
+      </div>
+
       <main class="page">
         <slot />
       </main>
