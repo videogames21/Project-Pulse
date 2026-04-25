@@ -9,6 +9,7 @@ import edu.tcu.cs.projectpulse.team.TeamNameConflictException;
 import edu.tcu.cs.projectpulse.team.TeamNotFoundException;
 import edu.tcu.cs.projectpulse.user.UserNotFoundException;
 import edu.tcu.cs.projectpulse.war.WARNotFoundException;
+import edu.tcu.cs.projectpulse.peerevaluation.PeerEvaluationNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
@@ -75,6 +76,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(WARNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Result handleWARNotFound(WARNotFoundException ex) {
+        return new Result(false, StatusCode.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(PeerEvaluationNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Result handlePeerEvaluationNotFound(PeerEvaluationNotFoundException ex) {
         return new Result(false, StatusCode.NOT_FOUND, ex.getMessage());
     }
 
