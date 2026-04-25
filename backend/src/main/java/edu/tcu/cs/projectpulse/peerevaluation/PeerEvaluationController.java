@@ -2,6 +2,7 @@ package edu.tcu.cs.projectpulse.peerevaluation;
 
 import edu.tcu.cs.projectpulse.peerevaluation.dto.PeerEvaluationRequest;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.PeerEvaluationResponse;
+import edu.tcu.cs.projectpulse.peerevaluation.dto.SectionPeerEvaluationReportResponse;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.StudentPeerEvaluationReportResponse;
 import edu.tcu.cs.projectpulse.system.Result;
 import edu.tcu.cs.projectpulse.system.StatusCode;
@@ -47,5 +48,13 @@ public class PeerEvaluationController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart) {
         StudentPeerEvaluationReportResponse report = peerEvaluationService.getStudentReport(studentId, weekStart);
         return new Result(true, StatusCode.SUCCESS, "Peer evaluation report generated successfully", report);
+    }
+
+    @GetMapping("/sections/{sectionName}/report")
+    public Result getSectionReport(
+            @PathVariable String sectionName,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart) {
+        SectionPeerEvaluationReportResponse report = peerEvaluationService.getSectionReport(sectionName, weekStart);
+        return new Result(true, StatusCode.SUCCESS, "Section peer evaluation report generated successfully", report);
     }
 }

@@ -13,4 +13,6 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     List<UserEntity> findByRoleAndTeamIdIsNull(UserRole role);
 
     List<UserEntity> findByTeamId(Long teamId);
+
+    List<UserEntity> findByRoleAndTeamId(UserRole role, Long teamId);
 }

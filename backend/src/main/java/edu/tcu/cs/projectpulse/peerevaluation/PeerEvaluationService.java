@@ -3,9 +3,13 @@ package edu.tcu.cs.projectpulse.peerevaluation;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.CriterionAverageScoreResponse;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.PeerEvaluationRequest;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.PeerEvaluationResponse;
+import edu.tcu.cs.projectpulse.peerevaluation.dto.ReceivedEvaluationDetail;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.ScoreRequest;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.ScoreResponse;
+import edu.tcu.cs.projectpulse.peerevaluation.dto.SectionPeerEvaluationReportResponse;
+import edu.tcu.cs.projectpulse.peerevaluation.dto.StudentEvaluationSummary;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.StudentPeerEvaluationReportResponse;
+import edu.tcu.cs.projectpulse.team.TeamRepository;
 import edu.tcu.cs.projectpulse.user.UserEntity;
 import edu.tcu.cs.projectpulse.user.UserNotFoundException;
 import edu.tcu.cs.projectpulse.user.UserRepository;
@@ -18,6 +22,7 @@ import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,11 +32,14 @@ public class PeerEvaluationService {
 
     private final PeerEvaluationRepository peerEvaluationRepository;
     private final UserRepository userRepository;
+    private final TeamRepository teamRepository;
 
     public PeerEvaluationService(PeerEvaluationRepository peerEvaluationRepository,
-                                  UserRepository userRepository) {
+                                  UserRepository userRepository,
+                                  TeamRepository teamRepository) {
         this.peerEvaluationRepository = peerEvaluationRepository;
         this.userRepository = userRepository;
+        this.teamRepository = teamRepository;
     }
 
     @Transactional
@@ -152,6 +160,63 @@ public class PeerEvaluationService {
         return new StudentPeerEvaluationReportResponse(
                 studentId, student.getName(), weekStart,
                 evaluations.size(), averageCriterionScores, publicComments, averageGrade);
+    }
+
+    // ── UC-31: Section report ────────────────────────────────────────────────
+
+    public SectionPeerEvaluationReportResponse getSectionReport(String sectionName, LocalDate weekStart) {
+        validateWeekStart(weekStart);
+
+        // Collect all students in the section, sorted by last name
+        List<UserEntity> students = teamRepository.findAllBySectionNameOrderByNameAsc(sectionName)
+                .stream()
+                .flatMap(team -> userRepository.findByRoleAndTeamId(UserRole.STUDENT, team.getId()).stream())
+                .sorted(Comparator.comparing(u -> lastName(u.getName())))
+                .toList();
+
+        List<StudentEvaluationSummary> summaries = students.stream()
+                .map(student -> buildStudentSummary(student, weekStart))
+                .toList();
+
+        return new SectionPeerEvaluationReportResponse(sectionName, weekStart, summaries);
+    }
+
+    private StudentEvaluationSummary buildStudentSummary(UserEntity student, LocalDate weekStart) {
+        boolean didSubmit = peerEvaluationRepository
+                .existsByEvaluatorIdAndWeekStart(student.getId(), weekStart);
+
+        List<PeerEvaluationEntity> received =
+                peerEvaluationRepository.findAllByEvaluateeIdAndWeekStart(student.getId(), weekStart);
+
+        List<ReceivedEvaluationDetail> details = received.stream()
+                .map(eval -> {
+                    String evaluatorName = userRepository.findById(eval.getEvaluatorId())
+                            .map(UserEntity::getName)
+                            .orElse("Unknown");
+                    BigDecimal total = eval.getScores().stream()
+                            .map(s -> BigDecimal.valueOf(s.getScore()))
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    return new ReceivedEvaluationDetail(
+                            eval.getEvaluatorId(), evaluatorName, total,
+                            eval.getPublicComments(), eval.getPrivateComments());
+                })
+                .toList();
+
+        BigDecimal averageGrade = received.isEmpty() ? BigDecimal.ZERO :
+                details.stream()
+                        .map(ReceivedEvaluationDetail::totalScore)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+                        .divide(BigDecimal.valueOf(received.size()), 2, RoundingMode.HALF_UP);
+
+        return new StudentEvaluationSummary(
+                student.getId(), student.getName(), didSubmit,
+                received.size(), averageGrade, details);
+    }
+
+    private static String lastName(String fullName) {
+        String trimmed = fullName.trim();
+        int lastSpace = trimmed.lastIndexOf(' ');
+        return lastSpace >= 0 ? trimmed.substring(lastSpace + 1) : trimmed;
     }
 
     // ── Internals ────────────────────────────────────────────────────────────
