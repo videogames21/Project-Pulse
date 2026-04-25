@@ -48,10 +48,20 @@ public class UserService {
                 .toList();
     }
 
-    public List<UserResponse> findInstructors(String name) {
-        List<UserEntity> instructors = (name != null && !name.isBlank())
-                ? userRepository.findByRoleAndNameContaining(UserRole.INSTRUCTOR, name)
-                : userRepository.findByRole(UserRole.INSTRUCTOR);
+    public List<UserResponse> findInstructors(String name, UserStatus status) {
+        List<UserEntity> instructors;
+        boolean hasName   = name != null && !name.isBlank();
+        boolean hasStatus = status != null;
+
+        if (hasName && hasStatus) {
+            instructors = userRepository.findByRoleAndStatusAndNameContaining(UserRole.INSTRUCTOR, status, name);
+        } else if (hasName) {
+            instructors = userRepository.findByRoleAndNameContaining(UserRole.INSTRUCTOR, name);
+        } else if (hasStatus) {
+            instructors = userRepository.findByRoleAndStatus(UserRole.INSTRUCTOR, status);
+        } else {
+            instructors = userRepository.findByRole(UserRole.INSTRUCTOR);
+        }
         return instructors.stream()
                 .map(this::toResponse)
                 .toList();
@@ -74,6 +84,29 @@ public class UserService {
                 entity.getTeamId(),
                 teamName
         );
+    }
+
+    public InstructorDetailResponse deactivateInstructor(Long id, String reason) {
+        UserEntity user = findEntityById(id);
+        if (user.getRole() != UserRole.INSTRUCTOR) {
+            throw new IllegalArgumentException("User " + id + " is not an instructor");
+        }
+        user.setStatus(UserStatus.DEACTIVATED);
+        user.setDeactivationReason(reason);
+        user.setTeamId(null);
+        userRepository.save(user);
+        return toInstructorDetail(user);
+    }
+
+    public InstructorDetailResponse reactivateInstructor(Long id) {
+        UserEntity user = findEntityById(id);
+        if (user.getRole() != UserRole.INSTRUCTOR) {
+            throw new IllegalArgumentException("User " + id + " is not an instructor");
+        }
+        user.setStatus(UserStatus.ACTIVE);
+        user.setDeactivationReason(null);
+        userRepository.save(user);
+        return toInstructorDetail(user);
     }
 
     public InstructorDetailResponse toInstructorDetail(UserEntity user) {

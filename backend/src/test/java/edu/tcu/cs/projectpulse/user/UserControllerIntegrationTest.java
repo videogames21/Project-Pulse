@@ -12,7 +12,9 @@ import org.springframework.web.context.WebApplicationContext;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import org.springframework.http.MediaType;
 
 @SpringBootTest
 class UserControllerIntegrationTest {
@@ -256,5 +258,230 @@ class UserControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/users/9999"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    // ── PATCH /api/v1/users/{id}/deactivate — UC-23 ──────────────────────────
+
+    @Test
+    void deactivateInstructor_activeInstructor_returnsDeactivatedStatus() throws Exception {
+        UserEntity u = createUser("Alice", "Prof", "alice@tcu.edu", UserRole.INSTRUCTOR);
+
+        mockMvc.perform(patch("/api/v1/users/" + u.getId() + "/deactivate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Instructor left the program\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("DEACTIVATED"));
+    }
+
+    @Test
+    void deactivateInstructor_persistsDeactivatedStatus() throws Exception {
+        UserEntity u = createUser("Bob", "Prof", "bob@tcu.edu", UserRole.INSTRUCTOR);
+
+        mockMvc.perform(patch("/api/v1/users/" + u.getId() + "/deactivate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"No longer teaching\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/users/" + u.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("DEACTIVATED"));
+    }
+
+    @Test
+    void deactivateInstructor_removesInstructorFromTeam() throws Exception {
+        TeamEntity team = new TeamEntity();
+        team.setName("Team Bravo");
+        team.setSectionName("2025-2026");
+        team = teamRepository.save(team);
+
+        UserEntity u = new UserEntity();
+        u.setFirstName("Frank");
+        u.setLastName("Hill");
+        u.setEmail("frank@tcu.edu");
+        u.setRole(UserRole.INSTRUCTOR);
+        u.setTeamId(team.getId());
+        u = userRepository.save(u);
+
+        mockMvc.perform(patch("/api/v1/users/" + u.getId() + "/deactivate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Left university\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.supervisedTeam").doesNotExist());
+
+        mockMvc.perform(get("/api/v1/users/" + u.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.supervisedTeam").doesNotExist());
+    }
+
+    @Test
+    void deactivateInstructor_emptyReason_returns400() throws Exception {
+        UserEntity u = createUser("Alice", "Prof", "alice2@tcu.edu", UserRole.INSTRUCTOR);
+
+        mockMvc.perform(patch("/api/v1/users/" + u.getId() + "/deactivate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deactivateInstructor_whitespaceOnlyReason_returns400() throws Exception {
+        UserEntity u = createUser("Alice", "Prof", "alice3@tcu.edu", UserRole.INSTRUCTOR);
+
+        mockMvc.perform(patch("/api/v1/users/" + u.getId() + "/deactivate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"   \"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deactivateInstructor_nonInstructor_returns400() throws Exception {
+        UserEntity student = createUser("Sam", "Student", "sam@tcu.edu", UserRole.STUDENT);
+
+        mockMvc.perform(patch("/api/v1/users/" + student.getId() + "/deactivate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Not an instructor\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void deactivateInstructor_notFound_returns404() throws Exception {
+        mockMvc.perform(patch("/api/v1/users/9999/deactivate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Test reason\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    // ── PATCH /api/v1/users/{id}/reactivate — UC-24 ──────────────────────────
+
+    @Test
+    void reactivateInstructor_deactivatedInstructor_returnsActiveStatus() throws Exception {
+        UserEntity u = new UserEntity();
+        u.setFirstName("Carol");
+        u.setLastName("Jones");
+        u.setEmail("carol@tcu.edu");
+        u.setRole(UserRole.INSTRUCTOR);
+        u.setStatus(UserStatus.DEACTIVATED);
+        u = userRepository.save(u);
+
+        mockMvc.perform(patch("/api/v1/users/" + u.getId() + "/reactivate"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+    }
+
+    @Test
+    void reactivateInstructor_persistsActiveStatus() throws Exception {
+        UserEntity u = new UserEntity();
+        u.setFirstName("Dave");
+        u.setLastName("Smith");
+        u.setEmail("dave@tcu.edu");
+        u.setRole(UserRole.INSTRUCTOR);
+        u.setStatus(UserStatus.DEACTIVATED);
+        u = userRepository.save(u);
+
+        mockMvc.perform(patch("/api/v1/users/" + u.getId() + "/reactivate"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/users/" + u.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+    }
+
+    @Test
+    void reactivateInstructor_doesNotAutoAssignTeam() throws Exception {
+        TeamEntity team = new TeamEntity();
+        team.setName("Team Charlie");
+        team.setSectionName("2025-2026");
+        team = teamRepository.save(team);
+
+        UserEntity u = new UserEntity();
+        u.setFirstName("Eve");
+        u.setLastName("Brown");
+        u.setEmail("eve@tcu.edu");
+        u.setRole(UserRole.INSTRUCTOR);
+        u.setStatus(UserStatus.DEACTIVATED);
+        u = userRepository.save(u);
+
+        mockMvc.perform(patch("/api/v1/users/" + u.getId() + "/reactivate"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.supervisedTeam").doesNotExist());
+    }
+
+    @Test
+    void reactivateInstructor_nonInstructor_returns400() throws Exception {
+        UserEntity student = createUser("Sam", "Student", "sam2@tcu.edu", UserRole.STUDENT);
+
+        mockMvc.perform(patch("/api/v1/users/" + student.getId() + "/reactivate"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void reactivateInstructor_notFound_returns404() throws Exception {
+        mockMvc.perform(patch("/api/v1/users/9999/reactivate"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    // ── GET /api/v1/users?role=INSTRUCTOR&status=ACTIVE — status filter ───────
+
+    @Test
+    void findInstructors_statusActiveFilter_excludesDeactivated() throws Exception {
+        createUser("Alice", "Active", "alice-active@tcu.edu", UserRole.INSTRUCTOR);
+
+        UserEntity deactivated = new UserEntity();
+        deactivated.setFirstName("Bob");
+        deactivated.setLastName("Gone");
+        deactivated.setEmail("bob-gone@tcu.edu");
+        deactivated.setRole(UserRole.INSTRUCTOR);
+        deactivated.setStatus(UserStatus.DEACTIVATED);
+        userRepository.save(deactivated);
+
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("status", "ACTIVE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].firstName").value("Alice"))
+                .andExpect(jsonPath("$.data[0].status").value("ACTIVE"));
+    }
+
+    @Test
+    void findInstructors_statusActiveFilter_withNameSearch_excludesDeactivated() throws Exception {
+        createUser("Carol", "Smith", "carol@tcu.edu", UserRole.INSTRUCTOR);
+
+        UserEntity deactivated = new UserEntity();
+        deactivated.setFirstName("Carol");
+        deactivated.setLastName("Gone");
+        deactivated.setEmail("carol-gone@tcu.edu");
+        deactivated.setRole(UserRole.INSTRUCTOR);
+        deactivated.setStatus(UserStatus.DEACTIVATED);
+        userRepository.save(deactivated);
+
+        mockMvc.perform(get("/api/v1/users")
+                        .param("role", "INSTRUCTOR")
+                        .param("status", "ACTIVE")
+                        .param("name", "Carol"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].status").value("ACTIVE"));
+    }
+
+    @Test
+    void findInstructors_noStatusFilter_returnsAllIncludingDeactivated() throws Exception {
+        createUser("Alice", "Active", "alice-a@tcu.edu", UserRole.INSTRUCTOR);
+
+        UserEntity deactivated = new UserEntity();
+        deactivated.setFirstName("Bob");
+        deactivated.setLastName("Gone");
+        deactivated.setEmail("bob-g@tcu.edu");
+        deactivated.setRole(UserRole.INSTRUCTOR);
+        deactivated.setStatus(UserStatus.DEACTIVATED);
+        userRepository.save(deactivated);
+
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(2)));
     }
 }

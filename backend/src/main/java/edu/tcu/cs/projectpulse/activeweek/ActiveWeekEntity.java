@@ -19,6 +19,9 @@ public class ActiveWeekEntity {
     @Column(name = "week_start_date", nullable = false)
     private LocalDate weekStartDate;
 
+    @Column(name = "is_active", nullable = false)
+    private boolean active = true;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -27,4 +30,7 @@ public class ActiveWeekEntity {
 
     public LocalDate getWeekStartDate() { return weekStartDate; }
     public void setWeekStartDate(LocalDate weekStartDate) { this.weekStartDate = weekStartDate; }
+
+    public boolean isActive() { return active; }
+    public void setActive(boolean active) { this.active = active; }
 }

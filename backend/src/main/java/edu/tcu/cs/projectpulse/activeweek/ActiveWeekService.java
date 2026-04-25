@@ -10,7 +10,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class ActiveWeekService {
@@ -27,13 +30,31 @@ public class ActiveWeekService {
         SectionEntity section = sectionRepository.findById(sectionId)
                 .orElseThrow(() -> new SectionNotFoundException(sectionId));
 
-        List<LocalDate> activeWeeks = activeWeekRepository
-                .findBySectionIdOrderByWeekStartDateAsc(sectionId)
-                .stream()
+        List<ActiveWeekEntity> all = activeWeekRepository.findBySectionIdOrderByWeekStartDateAsc(sectionId);
+
+        List<LocalDate> activeWeeks = all.stream()
+                .filter(ActiveWeekEntity::isActive)
                 .map(ActiveWeekEntity::getWeekStartDate)
                 .toList();
 
-        return new ActiveWeekResponse(section.getId(), activeWeeks);
+        List<LocalDate> configuredWeeks = all.stream()
+                .map(ActiveWeekEntity::getWeekStartDate)
+                .toList();
+
+        return new ActiveWeekResponse(section.getId(), activeWeeks, configuredWeeks);
+    }
+
+    private List<LocalDate> computeAllMondays(LocalDate startDate, LocalDate endDate) {
+        List<LocalDate> mondays = new ArrayList<>();
+        LocalDate current = startDate;
+        while (current.getDayOfWeek() != DayOfWeek.MONDAY) {
+            current = current.plusDays(1);
+        }
+        while (!current.isAfter(endDate)) {
+            mondays.add(current);
+            current = current.plusWeeks(1);
+        }
+        return mondays;
     }
 
     @Transactional
@@ -67,21 +88,23 @@ public class ActiveWeekService {
         activeWeekRepository.deleteBySectionId(sectionId);
         activeWeekRepository.flush();
 
-        List<ActiveWeekEntity> entities = dates.stream().map(date -> {
+        Set<LocalDate> activeSet = new HashSet<>(dates);
+        List<LocalDate> allMondays = computeAllMondays(section.getStartDate(), section.getEndDate());
+
+        List<ActiveWeekEntity> entities = allMondays.stream().map(monday -> {
             ActiveWeekEntity entity = new ActiveWeekEntity();
             entity.setSectionId(sectionId);
-            entity.setWeekStartDate(date);
+            entity.setWeekStartDate(monday);
+            entity.setActive(activeSet.contains(monday));
             return entity;
         }).toList();
 
         activeWeekRepository.saveAll(entities);
 
-        List<LocalDate> saved = activeWeekRepository
-                .findBySectionIdOrderByWeekStartDateAsc(sectionId)
-                .stream()
-                .map(ActiveWeekEntity::getWeekStartDate)
+        List<LocalDate> savedActive = allMondays.stream()
+                .filter(activeSet::contains)
                 .toList();
 
-        return new ActiveWeekResponse(sectionId, saved);
+        return new ActiveWeekResponse(sectionId, savedActive, allMondays);
     }
 }
