@@ -674,4 +674,247 @@ class UserControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.supervisedTeam").doesNotExist());
     }
+
+    // ── PATCH /api/v1/users/{id}/deactivate — UC-23 ──────────────────────────
+
+    @Test
+    void deactivateInstructor_activeInstructor_returnsDeactivatedStatus() throws Exception {
+        UserEntity u = createUser("Alice", "Prof", "alice-prof2@example.com", UserRole.INSTRUCTOR);
+
+        mockMvc.perform(patch("/api/v1/users/" + u.getId() + "/deactivate")
+                        .header("Authorization", jwtHelper.adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Instructor left the program\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("DEACTIVATED"));
+    }
+
+    @Test
+    void deactivateInstructor_persistsDeactivatedStatus() throws Exception {
+        UserEntity u = createUser("Bob", "Prof", "bob-prof@example.com", UserRole.INSTRUCTOR);
+
+        mockMvc.perform(patch("/api/v1/users/" + u.getId() + "/deactivate")
+                        .header("Authorization", jwtHelper.adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"No longer teaching\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/users/" + u.getId())
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("DEACTIVATED"));
+    }
+
+    @Test
+    void deactivateInstructor_removesInstructorFromTeam() throws Exception {
+        TeamEntity team = new TeamEntity();
+        team.setName("Team Bravo");
+        team.setSectionName("CS4910");
+        team = teamRepository.save(team);
+
+        UserEntity u = new UserEntity();
+        u.setFirstName("Frank");
+        u.setLastName("Hill");
+        u.setEmail("frank-hill@example.com");
+        u.setRole(UserRole.INSTRUCTOR);
+        u.setTeamId(team.getId());
+        u = userRepository.save(u);
+
+        mockMvc.perform(patch("/api/v1/users/" + u.getId() + "/deactivate")
+                        .header("Authorization", jwtHelper.adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Left university\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.supervisedTeam").doesNotExist());
+
+        mockMvc.perform(get("/api/v1/users/" + u.getId())
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.supervisedTeam").doesNotExist());
+    }
+
+    @Test
+    void deactivateInstructor_emptyReason_returns400() throws Exception {
+        UserEntity u = createUser("Alice", "Prof", "alice-prof3@example.com", UserRole.INSTRUCTOR);
+
+        mockMvc.perform(patch("/api/v1/users/" + u.getId() + "/deactivate")
+                        .header("Authorization", jwtHelper.adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deactivateInstructor_whitespaceOnlyReason_returns400() throws Exception {
+        UserEntity u = createUser("Alice", "Prof", "alice-prof4@example.com", UserRole.INSTRUCTOR);
+
+        mockMvc.perform(patch("/api/v1/users/" + u.getId() + "/deactivate")
+                        .header("Authorization", jwtHelper.adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"   \"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deactivateInstructor_nonInstructor_returns400() throws Exception {
+        UserEntity student = createUser("Sam", "Student", "sam-student@example.com", UserRole.STUDENT);
+
+        mockMvc.perform(patch("/api/v1/users/" + student.getId() + "/deactivate")
+                        .header("Authorization", jwtHelper.adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Not an instructor\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void deactivateInstructor_notFound_returns404() throws Exception {
+        mockMvc.perform(patch("/api/v1/users/9999/deactivate")
+                        .header("Authorization", jwtHelper.adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Test reason\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    // ── PATCH /api/v1/users/{id}/reactivate — UC-24 ──────────────────────────
+
+    @Test
+    void reactivateInstructor_deactivatedInstructor_returnsActiveStatus() throws Exception {
+        UserEntity u = new UserEntity();
+        u.setFirstName("Carol");
+        u.setLastName("Jones");
+        u.setEmail("carol-jones2@example.com");
+        u.setRole(UserRole.INSTRUCTOR);
+        u.setStatus(UserStatus.DEACTIVATED);
+        u = userRepository.save(u);
+
+        mockMvc.perform(patch("/api/v1/users/" + u.getId() + "/reactivate")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+    }
+
+    @Test
+    void reactivateInstructor_persistsActiveStatus() throws Exception {
+        UserEntity u = new UserEntity();
+        u.setFirstName("Dave");
+        u.setLastName("Smith");
+        u.setEmail("dave-smith2@example.com");
+        u.setRole(UserRole.INSTRUCTOR);
+        u.setStatus(UserStatus.DEACTIVATED);
+        u = userRepository.save(u);
+
+        mockMvc.perform(patch("/api/v1/users/" + u.getId() + "/reactivate")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/users/" + u.getId())
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+    }
+
+    @Test
+    void reactivateInstructor_doesNotAutoAssignTeam() throws Exception {
+        TeamEntity team = new TeamEntity();
+        team.setName("Team Charlie");
+        team.setSectionName("CS4911");
+        team = teamRepository.save(team);
+
+        UserEntity u = new UserEntity();
+        u.setFirstName("Eve");
+        u.setLastName("Brown");
+        u.setEmail("eve-brown2@example.com");
+        u.setRole(UserRole.INSTRUCTOR);
+        u.setStatus(UserStatus.DEACTIVATED);
+        u = userRepository.save(u);
+
+        mockMvc.perform(patch("/api/v1/users/" + u.getId() + "/reactivate")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.supervisedTeam").doesNotExist());
+    }
+
+    @Test
+    void reactivateInstructor_nonInstructor_returns400() throws Exception {
+        UserEntity student = createUser("Sam", "Student", "sam-student2@example.com", UserRole.STUDENT);
+
+        mockMvc.perform(patch("/api/v1/users/" + student.getId() + "/reactivate")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void reactivateInstructor_notFound_returns404() throws Exception {
+        mockMvc.perform(patch("/api/v1/users/9999/reactivate")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    // ── GET /api/v1/users?role=INSTRUCTOR&status=ACTIVE — status filter ───────
+
+    @Test
+    void findInstructors_statusActiveFilter_excludesDeactivated() throws Exception {
+        createUser("Alice", "Active", "alice-active@example.com", UserRole.INSTRUCTOR);
+
+        UserEntity deactivated = new UserEntity();
+        deactivated.setFirstName("Bob");
+        deactivated.setLastName("Gone");
+        deactivated.setEmail("bob-gone@example.com");
+        deactivated.setRole(UserRole.INSTRUCTOR);
+        deactivated.setStatus(UserStatus.DEACTIVATED);
+        userRepository.save(deactivated);
+
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("status", "ACTIVE")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(2)))
+                .andExpect(jsonPath("$.data[?(@.email == 'alice-active@example.com')].status",
+                        hasItem("ACTIVE")));
+    }
+
+    @Test
+    void findInstructors_statusActiveFilter_withNameSearch_excludesDeactivated() throws Exception {
+        createUser("Zara", "Smith", "zara-smith@example.com", UserRole.INSTRUCTOR);
+
+        UserEntity deactivated = new UserEntity();
+        deactivated.setFirstName("Zara");
+        deactivated.setLastName("Gone");
+        deactivated.setEmail("zara-gone@example.com");
+        deactivated.setRole(UserRole.INSTRUCTOR);
+        deactivated.setStatus(UserStatus.DEACTIVATED);
+        userRepository.save(deactivated);
+
+        mockMvc.perform(get("/api/v1/users")
+                        .param("role", "INSTRUCTOR")
+                        .param("status", "ACTIVE")
+                        .param("name", "Zara")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].status").value("ACTIVE"));
+    }
+
+    @Test
+    void findInstructors_noStatusFilter_returnsAllIncludingDeactivated() throws Exception {
+        createUser("Yara", "Active", "yara-active@example.com", UserRole.INSTRUCTOR);
+
+        UserEntity deactivated = new UserEntity();
+        deactivated.setFirstName("Yara");
+        deactivated.setLastName("Gone");
+        deactivated.setEmail("yara-gone@example.com");
+        deactivated.setRole(UserRole.INSTRUCTOR);
+        deactivated.setStatus(UserStatus.DEACTIVATED);
+        userRepository.save(deactivated);
+
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(greaterThanOrEqualTo(2))));
+    }
 }

@@ -3,6 +3,7 @@ package edu.tcu.cs.projectpulse.user;
 import edu.tcu.cs.projectpulse.system.Result;
 import edu.tcu.cs.projectpulse.system.StatusCode;
 import edu.tcu.cs.projectpulse.user.dto.ChangePasswordRequest;
+import edu.tcu.cs.projectpulse.user.dto.DeactivateRequest;
 import edu.tcu.cs.projectpulse.user.dto.UpdateProfileRequest;
 import edu.tcu.cs.projectpulse.user.dto.UserResponse;
 import jakarta.validation.Valid;
@@ -50,9 +51,15 @@ public class UserController {
     @GetMapping
     public Result findUsers(@RequestParam(required = false) String role,
                             @RequestParam(required = false) String name,
-                            @RequestParam(required = false) Boolean unassigned) {
+                            @RequestParam(required = false) Boolean unassigned,
+                            @RequestParam(required = false) String status) {
         if ("INSTRUCTOR".equalsIgnoreCase(role)) {
-            List<UserResponse> instructors = userService.findInstructors(name);
+            UserStatus statusFilter = null;
+            if (status != null && !status.isBlank()) {
+                try { statusFilter = UserStatus.valueOf(status.toUpperCase()); }
+                catch (IllegalArgumentException ignored) {}
+            }
+            List<UserResponse> instructors = userService.findInstructors(name, statusFilter);
             return new Result(true, StatusCode.SUCCESS, "Instructors retrieved successfully", instructors);
         }
         List<UserResponse> students = Boolean.TRUE.equals(unassigned)
@@ -70,5 +77,18 @@ public class UserController {
         }
         return new Result(true, StatusCode.SUCCESS, "User retrieved successfully",
                 userService.toResponse(entity));
+    }
+
+    @PatchMapping("/{id}/deactivate")
+    public Result deactivateInstructor(@PathVariable Long id,
+                                       @RequestBody @Valid DeactivateRequest request) {
+        return new Result(true, StatusCode.SUCCESS, "Instructor deactivated successfully",
+                userService.deactivateInstructor(id, request.reason()));
+    }
+
+    @PatchMapping("/{id}/reactivate")
+    public Result reactivateInstructor(@PathVariable Long id) {
+        return new Result(true, StatusCode.SUCCESS, "Instructor reactivated successfully",
+                userService.reactivateInstructor(id));
     }
 }

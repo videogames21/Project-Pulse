@@ -9,9 +9,12 @@ export const usersApi = {
   getInstructorById(id)    { return api.get(`/api/v1/users/${id}`) },
   getStudents()            { return api.get('/api/v1/users?role=STUDENT') },
   getUnassignedStudents()  { return api.get('/api/v1/users?role=STUDENT&unassigned=true') },
-  getInstructors(name) {
+  getInstructors(name, activeOnly = false) {
     const params = new URLSearchParams({ role: 'INSTRUCTOR' })
     if (name?.trim()) params.set('name', name.trim())
+    if (activeOnly)   params.set('status', 'ACTIVE')
     return api.get(`/api/v1/users?${params}`)
   },
+  deactivateInstructor(id, reason) { return api.patch(`/api/v1/users/${id}/deactivate`, { reason }) },
+  reactivateInstructor(id) { return api.patch(`/api/v1/users/${id}/reactivate`) },
 }

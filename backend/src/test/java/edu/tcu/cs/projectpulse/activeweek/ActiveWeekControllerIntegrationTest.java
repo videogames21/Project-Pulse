@@ -309,6 +309,43 @@ class ActiveWeekControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.activeWeeks[0]").value("2026-01-05"));
     }
 
+    // ── configuredWeeks — expansion vs. deliberate deactivation ──────────────
+
+    @Test
+    void saveActiveWeeks_deactivatedWeek_appearsInConfiguredButNotActive() throws Exception {
+        // Range has 3 Mondays: Sep 1, Sep 8, Sep 15. Deactivate Sep 8.
+        SectionEntity section = createSection("2025-Fall",
+                LocalDate.of(2025, 9, 1), LocalDate.of(2025, 9, 15));
+
+        var body = Map.of("activeWeekDates", List.of("2025-09-01", "2025-09-15"));
+
+        mockMvc.perform(put("/api/v1/sections/{id}/active-weeks", section.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.activeWeeks",    hasSize(2)))
+                .andExpect(jsonPath("$.data.configuredWeeks", hasSize(3)))
+                .andExpect(jsonPath("$.data.configuredWeeks", hasItem("2025-09-08")));
+    }
+
+    @Test
+    void getActiveWeeks_afterDeactivation_configuredWeeksRetained() throws Exception {
+        SectionEntity section = createSection("2025-Fall",
+                LocalDate.of(2025, 9, 1), LocalDate.of(2025, 9, 15));
+
+        var body = Map.of("activeWeekDates", List.of("2025-09-01", "2025-09-15"));
+
+        mockMvc.perform(put("/api/v1/sections/{id}/active-weeks", section.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/sections/{id}/active-weeks", section.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.activeWeeks",    hasSize(2)))
+                .andExpect(jsonPath("$.data.configuredWeeks", hasSize(3)));
+    }
+
     @Test
     void getActiveWeeks_weeksIsolatedBetweenSections() throws Exception {
         SectionEntity sectionA = createSection("2025-2026",

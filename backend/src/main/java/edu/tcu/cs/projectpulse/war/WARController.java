@@ -2,6 +2,8 @@ package edu.tcu.cs.projectpulse.war;
 
 import edu.tcu.cs.projectpulse.system.Result;
 import edu.tcu.cs.projectpulse.system.StatusCode;
+import edu.tcu.cs.projectpulse.war.dto.StudentWARRangeReportResponse;
+import edu.tcu.cs.projectpulse.war.dto.TeamWARReportResponse;
 import edu.tcu.cs.projectpulse.war.dto.WARActivityRequest;
 import edu.tcu.cs.projectpulse.war.dto.WARActivityResponse;
 import edu.tcu.cs.projectpulse.war.dto.WARResponse;
@@ -57,5 +59,22 @@ public class WARController {
             @PathVariable Long activityId) {
         warService.deleteActivity(studentId, weekStart, activityId);
         return new Result(true, StatusCode.SUCCESS, "Activity deleted successfully");
+    }
+
+    @GetMapping("/teams/{teamId}/report")
+    public Result getTeamReport(
+            @PathVariable Long teamId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart) {
+        TeamWARReportResponse report = warService.getTeamReport(teamId, weekStart);
+        return new Result(true, StatusCode.SUCCESS, "Team WAR report generated successfully", report);
+    }
+
+    @GetMapping("/students/{studentId}/report")
+    public Result getStudentRangeReport(
+            @PathVariable Long studentId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startWeek,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endWeek) {
+        StudentWARRangeReportResponse report = warService.getStudentRangeReport(studentId, startWeek, endWeek);
+        return new Result(true, StatusCode.SUCCESS, "Student WAR range report generated successfully", report);
     }
 }

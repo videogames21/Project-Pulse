@@ -42,6 +42,9 @@ public class UserEntity {
     @Column(length = 1)
     private String middleInitial;
 
+    @Column(length = 500)
+    private String deactivationReason;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -74,6 +77,9 @@ public class UserEntity {
 
     public String getMiddleInitial() { return middleInitial; }
     public void setMiddleInitial(String middleInitial) { this.middleInitial = middleInitial; }
+
+    public String getDeactivationReason() { return deactivationReason; }
+    public void setDeactivationReason(String deactivationReason) { this.deactivationReason = deactivationReason; }
 
     public String getName() {
         String ln = lastName != null ? lastName : "";
