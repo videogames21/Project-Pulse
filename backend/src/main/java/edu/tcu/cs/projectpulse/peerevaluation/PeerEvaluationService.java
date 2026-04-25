@@ -125,7 +125,10 @@ public class PeerEvaluationService {
 
     private void validateSameTeam(UserEntity evaluator, UserEntity evaluatee) {
         if (evaluator.getTeamId() == null) {
-            throw new IllegalStateException("Evaluator is not assigned to any team.");
+            throw new IllegalStateException("Evaluator (id=" + evaluator.getId() + ") is not assigned to any team.");
+        }
+        if (evaluatee.getTeamId() == null) {
+            throw new IllegalStateException("Evaluatee (id=" + evaluatee.getId() + ") is not assigned to any team.");
         }
         if (!evaluator.getTeamId().equals(evaluatee.getTeamId())) {
             throw new IllegalStateException("Evaluator and evaluatee must be on the same team.");
