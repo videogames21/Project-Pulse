@@ -564,7 +564,7 @@ class SectionControllerIntegrationTest {
 
     @Test
     void createSection_doesNotAffectStudentList() throws Exception {
-        createStudent("Alice Johnson", "alice@tcu.edu");
+        createStudent("Test Student A", "alice@tcu.edu");
 
         mockMvc.perform(post("/api/v1/sections")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -574,7 +574,7 @@ class SectionControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/users"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
-                .andExpect(jsonPath("$.data[0].name").value("Alice Johnson"));
+                .andExpect(jsonPath("$.data[0].name").value("Test Student A"));
     }
 
     // ── GET /api/v1/sections (no filter) ─────────────────────────────────────
@@ -764,7 +764,7 @@ class SectionControllerIntegrationTest {
     void findSectionById_teamWithAssignedStudents_studentsListedInTeamSummary() throws Exception {
         SectionEntity saved    = createSection("2025-2026");
         Long teamId            = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long aliceId           = createStudent("Alice Johnson", "alice@tcu.edu");
+        Long aliceId           = createStudent("Test Student A", "alice@tcu.edu");
         Long bobId             = createStudent("Bob Smith",  "bob@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
@@ -776,7 +776,7 @@ class SectionControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.teams[0].students", hasSize(2)))
                 .andExpect(jsonPath("$.data.teams[0].students",
-                        containsInAnyOrder("Alice Johnson", "Bob Smith")))
+                        containsInAnyOrder("Test Student A", "Bob Smith")))
                 .andExpect(jsonPath("$.data.teams[0].instructors", hasSize(0)));
     }
 
@@ -801,7 +801,7 @@ class SectionControllerIntegrationTest {
         SectionEntity saved = createSection("2025-2026");
         Long teamId         = createTeamAndReturnId("Team Alpha", "2025-2026");
         Long zoeId          = createStudent("Zoe Adams",  "zoe@tcu.edu");
-        Long aliceId        = createStudent("Alice Johnson", "alice@tcu.edu");
+        Long aliceId        = createStudent("Test Student A", "alice@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -810,7 +810,7 @@ class SectionControllerIntegrationTest {
 
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.teams[0].students[0]").value("Alice Johnson"))
+                .andExpect(jsonPath("$.data.teams[0].students[0]").value("Test Student A"))
                 .andExpect(jsonPath("$.data.teams[0].students[1]").value("Zoe Adams"));
     }
 
@@ -819,7 +819,7 @@ class SectionControllerIntegrationTest {
         SectionEntity saved  = createSection("2025-2026");
         Long teamAlphaId     = createTeamAndReturnId("Team Alpha", "2025-2026");
         Long teamBetaId      = createTeamAndReturnId("Team Beta",  "2025-2026");
-        Long aliceId         = createStudent("Alice Johnson", "alice@tcu.edu");
+        Long aliceId         = createStudent("Test Student A", "alice@tcu.edu");
         Long bobId           = createStudent("Bob Smith",  "bob@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/" + teamAlphaId + "/students")
@@ -834,7 +834,7 @@ class SectionControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.teams[0].name").value("Team Alpha"))
-                .andExpect(jsonPath("$.data.teams[0].students", contains("Alice Johnson")))
+                .andExpect(jsonPath("$.data.teams[0].students", contains("Test Student A")))
                 .andExpect(jsonPath("$.data.teams[1].name").value("Team Beta"))
                 .andExpect(jsonPath("$.data.teams[1].students", contains("Bob Smith")));
     }
@@ -934,7 +934,7 @@ class SectionControllerIntegrationTest {
     @Test
     void findSectionById_studentsNotIncludedInInstructorsNotOnTeam() throws Exception {
         SectionEntity saved = createSection("2025-2026");
-        createStudent("Alice Johnson", "alice@tcu.edu");
+        createStudent("Test Student A", "alice@tcu.edu");
         createInstructor("Dr. Smith", "smith@tcu.edu");
 
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
@@ -942,7 +942,7 @@ class SectionControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.instructorsNotOnTeam", hasSize(1)))
                 .andExpect(jsonPath("$.data.instructorsNotOnTeam[0]").value("Dr. Smith"))
                 .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(1)))
-                .andExpect(jsonPath("$.data.studentsNotOnTeam[0]").value("Alice Johnson"));
+                .andExpect(jsonPath("$.data.studentsNotOnTeam[0]").value("Test Student A"));
     }
 
     // ── UC-3: rubricName ──────────────────────────────────────────────────────
@@ -1047,28 +1047,28 @@ class SectionControllerIntegrationTest {
     @Test
     void findSectionById_unassignedStudents_appearsInStudentsNotOnTeam() throws Exception {
         SectionEntity saved = createSection("2025-2026");
-        createStudent("Alice Johnson", "alice@tcu.edu");
+        createStudent("Test Student A", "alice@tcu.edu");
         createStudent("Bob Smith",  "bob@tcu.edu");
 
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(2)))
                 .andExpect(jsonPath("$.data.studentsNotOnTeam",
-                        containsInAnyOrder("Alice Johnson", "Bob Smith")));
+                        containsInAnyOrder("Test Student A", "Bob Smith")));
     }
 
     @Test
     void findSectionById_studentsNotOnTeamSortedAlphabetically() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         createStudent("Zoe Adams",  "zoe@tcu.edu");
-        createStudent("Alice Johnson", "alice@tcu.edu");
+        createStudent("Test Student A", "alice@tcu.edu");
         createStudent("Mike Wong",  "mike@tcu.edu");
 
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(3)))
-                .andExpect(jsonPath("$.data.studentsNotOnTeam[0]").value("Alice Johnson"))
-                .andExpect(jsonPath("$.data.studentsNotOnTeam[1]").value("Mike Wong"))
+                .andExpect(jsonPath("$.data.studentsNotOnTeam[0]").value("Mike Wong"))
+                .andExpect(jsonPath("$.data.studentsNotOnTeam[1]").value("Test Student A"))
                 .andExpect(jsonPath("$.data.studentsNotOnTeam[2]").value("Zoe Adams"));
     }
 
@@ -1076,7 +1076,7 @@ class SectionControllerIntegrationTest {
     void findSectionById_assignedStudentNotInStudentsNotOnTeam() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         Long teamId  = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long aliceId = createStudent("Alice Johnson", "alice@tcu.edu");
+        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
         createStudent("Bob Smith", "bob@tcu.edu");
 
         // Assign Alice via the UC-12 endpoint
@@ -1095,7 +1095,7 @@ class SectionControllerIntegrationTest {
     void findSectionById_allStudentsAssigned_studentsNotOnTeamIsEmpty() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         Long teamId  = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long aliceId = createStudent("Alice Johnson", "alice@tcu.edu");
+        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
         Long bobId   = createStudent("Bob Smith",  "bob@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
@@ -1112,7 +1112,7 @@ class SectionControllerIntegrationTest {
     void findSectionById_removedStudentReturnsToStudentsNotOnTeam() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         Long teamId  = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long aliceId = createStudent("Alice Johnson", "alice@tcu.edu");
+        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -1126,7 +1126,7 @@ class SectionControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(1)))
-                .andExpect(jsonPath("$.data.studentsNotOnTeam[0]").value("Alice Johnson"));
+                .andExpect(jsonPath("$.data.studentsNotOnTeam[0]").value("Test Student A"));
     }
 
     // ── UC-10 + UC-3 cross-module: team edit/delete reflected in section view ──
@@ -1215,7 +1215,7 @@ class SectionControllerIntegrationTest {
     void findSectionById_teamDeletedWithStudents_studentsReturnToStudentsNotOnTeam() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         Long teamId  = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long aliceId = createStudent("Alice Johnson", "alice@tcu.edu");
+        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
         Long bobId   = createStudent("Bob Smith",  "bob@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
@@ -1237,7 +1237,7 @@ class SectionControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(2)))
                 .andExpect(jsonPath("$.data.studentsNotOnTeam",
-                        containsInAnyOrder("Alice Johnson", "Bob Smith")));
+                        containsInAnyOrder("Test Student A", "Bob Smith")));
     }
 
     // ── UC-19 + UC-3 cross-module: instructor assigned to team via UC-19 ──────
@@ -1289,7 +1289,7 @@ class SectionControllerIntegrationTest {
     void findSectionById_instructorAndStudentOnSameTeam_listedInCorrectColumns() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         Long teamId         = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long aliceId        = createStudent("Alice Johnson", "alice@tcu.edu");
+        Long aliceId        = createStudent("Test Student A", "alice@tcu.edu");
         Long drSmithId      = createInstructor("Dr. Smith", "smith@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
@@ -1300,7 +1300,7 @@ class SectionControllerIntegrationTest {
 
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.teams[0].students", contains("Alice Johnson")))
+                .andExpect(jsonPath("$.data.teams[0].students", contains("Test Student A")))
                 .andExpect(jsonPath("$.data.teams[0].instructors", contains("Dr. Smith")))
                 .andExpect(jsonPath("$.data.instructorsNotOnTeam", hasSize(0)))
                 .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(0)));
