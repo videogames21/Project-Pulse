@@ -8,6 +8,7 @@ public class InvitationResponse {
     private String status;
     private String createdAt;
     private String invitedBy;
+    private String email;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -26,4 +27,7 @@ public class InvitationResponse {
 
     public String getInvitedBy() { return invitedBy; }
     public void setInvitedBy(String invitedBy) { this.invitedBy = invitedBy; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 }

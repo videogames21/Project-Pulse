@@ -1,5 +1,6 @@
 package edu.tcu.cs.projectpulse.invitation;
 
+import edu.tcu.cs.projectpulse.user.UserRole;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -25,6 +26,13 @@ public class InvitationEntity {
     @Column(nullable = false)
     private String invitedBy;
 
+    @Column(length = 254)
+    private String email;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private UserRole role;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -39,4 +47,10 @@ public class InvitationEntity {
 
     public String getInvitedBy() { return invitedBy; }
     public void setInvitedBy(String invitedBy) { this.invitedBy = invitedBy; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public UserRole getRole() { return role; }
+    public void setRole(UserRole role) { this.role = role; }
 }
