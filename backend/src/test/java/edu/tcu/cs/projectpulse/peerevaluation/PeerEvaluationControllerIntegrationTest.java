@@ -15,6 +15,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -33,9 +35,9 @@ class PeerEvaluationControllerIntegrationTest {
     ObjectMapper objectMapper = new ObjectMapper();
     MockMvc mockMvc;
 
-    // A past Monday
-    private static final String PAST_MONDAY = "2024-09-02";
-    private static final String ANOTHER_MONDAY = "2024-09-09";
+    // Computed dynamically so tests never go stale
+    private String previousMonday;
+    private String twoWeeksAgoMonday;
     private static final String FUTURE_MONDAY = "2099-01-06";
 
     Long teamId;
@@ -50,6 +52,10 @@ class PeerEvaluationControllerIntegrationTest {
         peerEvaluationRepository.deleteAll();
         userRepository.deleteAll();
         teamRepository.deleteAll();
+
+        LocalDate currentMonday = LocalDate.now().with(DayOfWeek.MONDAY);
+        previousMonday   = currentMonday.minusWeeks(1).toString();
+        twoWeeksAgoMonday = currentMonday.minusWeeks(2).toString();
 
         TeamEntity team = new TeamEntity();
         team.setName("Team Alpha");
@@ -104,13 +110,13 @@ class PeerEvaluationControllerIntegrationTest {
     void submit_validRequest_returns201() throws Exception {
         mockMvc.perform(post("/api/v1/peer-evaluations")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(validBody(evaluatorId, evaluateeId, PAST_MONDAY))))
+                        .content(objectMapper.writeValueAsString(validBody(evaluatorId, evaluateeId, previousMonday))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").isNumber())
                 .andExpect(jsonPath("$.data.evaluatorId").value(evaluatorId))
                 .andExpect(jsonPath("$.data.evaluateeId").value(evaluateeId))
-                .andExpect(jsonPath("$.data.weekStart").value(PAST_MONDAY))
+                .andExpect(jsonPath("$.data.weekStart").value(previousMonday))
                 .andExpect(jsonPath("$.data.scores", hasSize(2)))
                 .andExpect(jsonPath("$.data.publicComments").value("Great work!"))
                 .andExpect(jsonPath("$.data.privateComments").value("Needs improvement in communication."));
@@ -120,18 +126,18 @@ class PeerEvaluationControllerIntegrationTest {
     void submit_selfEvaluation_isAllowed() throws Exception {
         mockMvc.perform(post("/api/v1/peer-evaluations")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(validBody(evaluatorId, evaluatorId, PAST_MONDAY))))
+                        .content(objectMapper.writeValueAsString(validBody(evaluatorId, evaluatorId, previousMonday))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true));
     }
 
     @Test
     void submit_duplicate_returns409() throws Exception {
-        submitEval(evaluatorId, evaluateeId, PAST_MONDAY);
+        submitEval(evaluatorId, evaluateeId, previousMonday);
 
         mockMvc.perform(post("/api/v1/peer-evaluations")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(validBody(evaluatorId, evaluateeId, PAST_MONDAY))))
+                        .content(objectMapper.writeValueAsString(validBody(evaluatorId, evaluateeId, previousMonday))))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -146,11 +152,33 @@ class PeerEvaluationControllerIntegrationTest {
     }
 
     @Test
-    void submit_weekStartNotMonday_returns400() throws Exception {
-        // 2024-09-03 is a Tuesday
+    void submit_currentWeek_returns400() throws Exception {
+        // The current week is not the previous week
+        String currentMonday = LocalDate.now().with(DayOfWeek.MONDAY).toString();
         mockMvc.perform(post("/api/v1/peer-evaluations")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(validBody(evaluatorId, evaluateeId, "2024-09-03"))))
+                        .content(objectMapper.writeValueAsString(validBody(evaluatorId, evaluateeId, currentMonday))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void submit_oldPastWeek_returns400() throws Exception {
+        // Two weeks ago is not the previous week (BR-4: only previous week allowed)
+        mockMvc.perform(post("/api/v1/peer-evaluations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(validBody(evaluatorId, evaluateeId, twoWeeksAgoMonday))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void submit_weekStartNotMonday_returns400() throws Exception {
+        // Date one day after previous Monday is a Tuesday
+        String tuesday = LocalDate.parse(previousMonday).plusDays(1).toString();
+        mockMvc.perform(post("/api/v1/peer-evaluations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(validBody(evaluatorId, evaluateeId, tuesday))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -159,7 +187,7 @@ class PeerEvaluationControllerIntegrationTest {
     void submit_evaluatorNotFound_returns404() throws Exception {
         mockMvc.perform(post("/api/v1/peer-evaluations")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(validBody(9999L, evaluateeId, PAST_MONDAY))))
+                        .content(objectMapper.writeValueAsString(validBody(9999L, evaluateeId, previousMonday))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -168,7 +196,7 @@ class PeerEvaluationControllerIntegrationTest {
     void submit_evaluateeNotFound_returns404() throws Exception {
         mockMvc.perform(post("/api/v1/peer-evaluations")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(validBody(evaluatorId, 9999L, PAST_MONDAY))))
+                        .content(objectMapper.writeValueAsString(validBody(evaluatorId, 9999L, previousMonday))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -184,7 +212,7 @@ class PeerEvaluationControllerIntegrationTest {
 
         mockMvc.perform(post("/api/v1/peer-evaluations")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(validBody(unassignedId, evaluateeId, PAST_MONDAY))))
+                        .content(objectMapper.writeValueAsString(validBody(unassignedId, evaluateeId, previousMonday))))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -206,7 +234,7 @@ class PeerEvaluationControllerIntegrationTest {
 
         mockMvc.perform(post("/api/v1/peer-evaluations")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(validBody(evaluatorId, otherStudentId, PAST_MONDAY))))
+                        .content(objectMapper.writeValueAsString(validBody(evaluatorId, otherStudentId, previousMonday))))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -216,8 +244,40 @@ class PeerEvaluationControllerIntegrationTest {
         var body = Map.of(
                 "evaluatorId", evaluatorId,
                 "evaluateeId", evaluateeId,
-                "weekStart", PAST_MONDAY,
+                "weekStart", previousMonday,
                 "scores", List.of()
+        );
+
+        mockMvc.perform(post("/api/v1/peer-evaluations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void submit_scoreBelowMin_returns400() throws Exception {
+        var body = Map.of(
+                "evaluatorId", evaluatorId,
+                "evaluateeId", evaluateeId,
+                "weekStart", previousMonday,
+                "scores", List.of(Map.of("criterionId", criterionId1, "score", 0))
+        );
+
+        mockMvc.perform(post("/api/v1/peer-evaluations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void submit_scoreAboveMax_returns400() throws Exception {
+        var body = Map.of(
+                "evaluatorId", evaluatorId,
+                "evaluateeId", evaluateeId,
+                "weekStart", previousMonday,
+                "scores", List.of(Map.of("criterionId", criterionId1, "score", 11))
         );
 
         mockMvc.perform(post("/api/v1/peer-evaluations")
@@ -231,7 +291,7 @@ class PeerEvaluationControllerIntegrationTest {
 
     @Test
     void findById_found_returns200() throws Exception {
-        Long id = submitEval(evaluatorId, evaluateeId, PAST_MONDAY);
+        Long id = submitEval(evaluatorId, evaluateeId, previousMonday);
 
         mockMvc.perform(get("/api/v1/peer-evaluations/" + id))
                 .andExpect(status().isOk())
@@ -251,12 +311,12 @@ class PeerEvaluationControllerIntegrationTest {
 
     @Test
     void update_validRequest_returns200() throws Exception {
-        Long id = submitEval(evaluatorId, evaluateeId, PAST_MONDAY);
+        Long id = submitEval(evaluatorId, evaluateeId, previousMonday);
 
         var updateBody = Map.of(
                 "evaluatorId", evaluatorId,
                 "evaluateeId", evaluateeId,
-                "weekStart", PAST_MONDAY,
+                "weekStart", previousMonday,
                 "scores", List.of(
                         Map.of("criterionId", criterionId1, "score", 10),
                         Map.of("criterionId", criterionId2, "score", 10)
@@ -278,7 +338,7 @@ class PeerEvaluationControllerIntegrationTest {
     void update_notFound_returns404() throws Exception {
         mockMvc.perform(put("/api/v1/peer-evaluations/9999")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(validBody(evaluatorId, evaluateeId, PAST_MONDAY))))
+                        .content(objectMapper.writeValueAsString(validBody(evaluatorId, evaluateeId, previousMonday))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false));
     }

@@ -19,6 +19,8 @@ public record WARActivityRequest(
         @Positive(message = "Planned hours must be positive")
         BigDecimal plannedHours,
 
+        @NotNull(message = "Actual hours are required")
+        @Positive(message = "Actual hours must be positive")
         BigDecimal actualHours,
 
         @NotNull(message = "Status is required")

@@ -1,6 +1,8 @@
 package edu.tcu.cs.projectpulse.peerevaluation;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.tcu.cs.projectpulse.section.SectionEntity;
+import edu.tcu.cs.projectpulse.section.SectionRepository;
 import edu.tcu.cs.projectpulse.team.TeamEntity;
 import edu.tcu.cs.projectpulse.team.TeamRepository;
 import edu.tcu.cs.projectpulse.user.UserEntity;
@@ -15,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -29,6 +32,7 @@ class SectionPeerEvaluationReportIntegrationTest {
     @Autowired UserRepository userRepository;
     @Autowired TeamRepository teamRepository;
     @Autowired PeerEvaluationRepository peerEvaluationRepository;
+    @Autowired SectionRepository sectionRepository;
 
     ObjectMapper objectMapper = new ObjectMapper();
     MockMvc mockMvc;
@@ -47,6 +51,11 @@ class SectionPeerEvaluationReportIntegrationTest {
         peerEvaluationRepository.deleteAll();
         userRepository.deleteAll();
         teamRepository.deleteAll();
+        sectionRepository.deleteAll();
+
+        SectionEntity section = new SectionEntity();
+        section.setName(SECTION);
+        sectionRepository.save(section);
 
         TeamEntity team = new TeamEntity();
         team.setName("Team Alpha");
@@ -73,22 +82,27 @@ class SectionPeerEvaluationReportIntegrationTest {
 
     private void submitEval(Long evaluatorId, Long evaluateeId, String weekStart,
                             int score1, int score2,
-                            String pub, String priv) throws Exception {
-        var body = Map.of(
-                "evaluatorId", evaluatorId,
-                "evaluateeId", evaluateeId,
-                "weekStart", weekStart,
-                "scores", List.of(
-                        Map.of("criterionId", 1L, "score", score1),
-                        Map.of("criterionId", 2L, "score", score2)
-                ),
-                "publicComments", pub,
-                "privateComments", priv
-        );
-        mockMvc.perform(post("/api/v1/peer-evaluations")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
-                .andExpect(status().isCreated());
+                            String pub, String priv) {
+        PeerEvaluationEntity eval = new PeerEvaluationEntity();
+        eval.setEvaluatorId(evaluatorId);
+        eval.setEvaluateeId(evaluateeId);
+        eval.setWeekStart(LocalDate.parse(weekStart));
+        eval.setPublicComments(pub);
+        eval.setPrivateComments(priv);
+
+        PeerEvaluationScoreEntity s1 = new PeerEvaluationScoreEntity();
+        s1.setPeerEvaluation(eval);
+        s1.setCriterionId(1L);
+        s1.setScore(score1);
+        eval.getScores().add(s1);
+
+        PeerEvaluationScoreEntity s2 = new PeerEvaluationScoreEntity();
+        s2.setPeerEvaluation(eval);
+        s2.setCriterionId(2L);
+        s2.setScore(score2);
+        eval.getScores().add(s2);
+
+        peerEvaluationRepository.save(eval);
     }
 
     // ── Tests ─────────────────────────────────────────────────────────────────
@@ -191,10 +205,10 @@ class SectionPeerEvaluationReportIntegrationTest {
     }
 
     @Test
-    void getSectionReport_unknownSection_returnsEmptyStudentList() throws Exception {
+    void getSectionReport_unknownSection_returns404() throws Exception {
         mockMvc.perform(get("/api/v1/peer-evaluations/sections/UNKNOWN/report")
                         .param("weekStart", PAST_MONDAY))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.students", hasSize(0)));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
     }
 }

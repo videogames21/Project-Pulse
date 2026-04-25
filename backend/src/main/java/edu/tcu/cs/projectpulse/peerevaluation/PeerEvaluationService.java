@@ -11,6 +11,8 @@ import edu.tcu.cs.projectpulse.peerevaluation.dto.StudentEvaluationSummary;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.StudentPeerEvalRangeReportResponse;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.StudentPeerEvaluationReportResponse;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.WeeklyPeerEvalSummary;
+import edu.tcu.cs.projectpulse.section.SectionNotFoundException;
+import edu.tcu.cs.projectpulse.section.SectionRepository;
 import edu.tcu.cs.projectpulse.team.TeamRepository;
 import edu.tcu.cs.projectpulse.user.UserEntity;
 import edu.tcu.cs.projectpulse.user.UserNotFoundException;
@@ -35,19 +37,22 @@ public class PeerEvaluationService {
     private final PeerEvaluationRepository peerEvaluationRepository;
     private final UserRepository userRepository;
     private final TeamRepository teamRepository;
+    private final SectionRepository sectionRepository;
 
     public PeerEvaluationService(PeerEvaluationRepository peerEvaluationRepository,
                                   UserRepository userRepository,
-                                  TeamRepository teamRepository) {
+                                  TeamRepository teamRepository,
+                                  SectionRepository sectionRepository) {
         this.peerEvaluationRepository = peerEvaluationRepository;
         this.userRepository = userRepository;
         this.teamRepository = teamRepository;
+        this.sectionRepository = sectionRepository;
     }
 
     @Transactional
     public PeerEvaluationResponse submit(PeerEvaluationRequest request) {
         validateWeekStart(request.weekStart());
-        validateNotFutureWeek(request.weekStart());
+        validateIsPreviousWeek(request.weekStart());
 
         UserEntity evaluator = requireStudent(request.evaluatorId());
         UserEntity evaluatee = requireStudent(request.evaluateeId());
@@ -115,6 +120,9 @@ public class PeerEvaluationService {
 
         UserEntity student = userRepository.findById(studentId)
                 .orElseThrow(() -> new UserNotFoundException(studentId));
+        if (student.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("User " + studentId + " is not a student.");
+        }
 
         List<PeerEvaluationEntity> evaluations =
                 peerEvaluationRepository.findAllByEvaluateeIdAndWeekStart(studentId, weekStart);
@@ -168,6 +176,10 @@ public class PeerEvaluationService {
 
     public SectionPeerEvaluationReportResponse getSectionReport(String sectionName, LocalDate weekStart) {
         validateWeekStart(weekStart);
+
+        if (!sectionRepository.existsByName(sectionName)) {
+            throw new SectionNotFoundException(sectionName);
+        }
 
         // Collect all students in the section, sorted by last name
         List<UserEntity> students = teamRepository.findAllBySectionNameOrderByNameAsc(sectionName)
@@ -229,6 +241,9 @@ public class PeerEvaluationService {
 
         UserEntity student = userRepository.findById(studentId)
                 .orElseThrow(() -> new UserNotFoundException(studentId));
+        if (student.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("User " + studentId + " is not a student.");
+        }
 
         List<PeerEvaluationEntity> all =
                 peerEvaluationRepository.findAllByEvaluateeIdAndWeekStartBetweenOrderByWeekStartAsc(
@@ -319,9 +334,14 @@ public class PeerEvaluationService {
         }
     }
 
-    private void validateNotFutureWeek(LocalDate weekStart) {
-        if (weekStart.isAfter(LocalDate.now())) {
-            throw new IllegalArgumentException("Cannot submit a peer evaluation for a future week.");
+    private void validateIsPreviousWeek(LocalDate weekStart) {
+        LocalDate previousMonday = LocalDate.now()
+                .with(DayOfWeek.MONDAY)
+                .minusWeeks(1);
+        if (!weekStart.equals(previousMonday)) {
+            throw new IllegalArgumentException(
+                    "Peer evaluations can only be submitted for the previous week (week starting "
+                    + previousMonday + ").");
         }
     }
 
