@@ -57,7 +57,7 @@ class PeerEvaluationControllerIntegrationTest {
         teamId = teamRepository.save(team).getId();
 
         UserEntity evaluator = new UserEntity();
-        evaluator.setName("Alice Chen");
+        evaluator.setName("Alice Johnson");
         evaluator.setEmail("alice@tcu.edu");
         evaluator.setRole(UserRole.STUDENT);
         evaluator.setTeamId(teamId);

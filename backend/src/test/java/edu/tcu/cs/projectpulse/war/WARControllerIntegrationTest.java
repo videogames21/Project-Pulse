@@ -47,7 +47,7 @@ class WARControllerIntegrationTest {
 
     private Long createStudent() {
         UserEntity u = new UserEntity();
-        u.setName("Alice Chen");
+        u.setName("Alice Johnson");
         u.setEmail("alice@tcu.edu");
         u.setRole(UserRole.STUDENT);
         return userRepository.save(u).getId();
