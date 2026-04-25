@@ -1,6 +1,8 @@
 package edu.tcu.cs.projectpulse.system;
 
 import edu.tcu.cs.projectpulse.auth.EmailAlreadyRegisteredException;
+import edu.tcu.cs.projectpulse.auth.InvalidAccessCodeException;
+import edu.tcu.cs.projectpulse.auth.InvitationAlreadyUsedException;
 import edu.tcu.cs.projectpulse.invitation.InvitationDisabledException;
 import edu.tcu.cs.projectpulse.invitation.InvitationNotFoundException;
 import edu.tcu.cs.projectpulse.rubric.RubricNameConflictException;
@@ -74,6 +76,18 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.GONE)
     public Result handleInvitationDisabled(InvitationDisabledException ex) {
         return new Result(false, StatusCode.GONE, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvitationAlreadyUsedException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Result handleInvitationAlreadyUsed(InvitationAlreadyUsedException ex) {
+        return new Result(false, StatusCode.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidAccessCodeException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Result handleInvalidAccessCode(InvalidAccessCodeException ex) {
+        return new Result(false, StatusCode.INVALID_ARGUMENT, ex.getMessage());
     }
 
     @ExceptionHandler(UserNotFoundException.class)

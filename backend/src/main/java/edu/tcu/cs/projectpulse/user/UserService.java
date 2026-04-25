@@ -100,9 +100,30 @@ public class UserService {
             }
         }
 
+        if (user.getRole() == UserRole.INSTRUCTOR) {
+            String supervisedSectionName = sectionRepository
+                    .findByInstructorId(user.getId())
+                    .map(SectionEntity::getName)
+                    .orElse(null);
+            UserEntity admin = userRepository.findByRole(UserRole.ADMIN)
+                    .stream().findFirst().orElse(null);
+            String adminName  = admin != null ? admin.getName()  : null;
+            String adminEmail = admin != null ? admin.getEmail() : null;
+            return new UserProfileResponse(
+                    user.getId(), user.getName(),
+                    user.getFirstName(), user.getLastName(), user.getMiddleInitial(),
+                    user.getEmail(), user.getRole().name(),
+                    null, null, null, null, null,
+                    supervisedSectionName, adminName, adminEmail
+            );
+        }
+
         return new UserProfileResponse(
-                user.getId(), user.getName(), user.getEmail(), user.getRole().name(),
-                user.getTeamId(), teamName, sectionName, instructorName, instructorEmail
+                user.getId(), user.getName(),
+                user.getFirstName(), user.getLastName(), user.getMiddleInitial(),
+                user.getEmail(), user.getRole().name(),
+                user.getTeamId(), teamName, sectionName, instructorName, instructorEmail,
+                null, null, null
         );
     }
 
@@ -116,15 +137,9 @@ public class UserService {
             });
         }
 
-        String fullName = req.name().trim();
-        int spaceIdx = fullName.indexOf(' ');
-        if (spaceIdx > 0) {
-            user.setFirstName(fullName.substring(0, spaceIdx));
-            user.setLastName(fullName.substring(spaceIdx + 1));
-        } else {
-            user.setFirstName(fullName);
-            user.setLastName("");
-        }
+        user.setFirstName(req.firstName());
+        user.setLastName(req.lastName());
+        user.setMiddleInitial(req.middleInitial());
         user.setEmail(req.email());
         userRepository.save(user);
 

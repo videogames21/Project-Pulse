@@ -1,10 +1,8 @@
 package edu.tcu.cs.projectpulse.invitation;
 
 import edu.tcu.cs.projectpulse.invitation.dto.InvitationResponse;
-import edu.tcu.cs.projectpulse.invitation.dto.InviteInstructorsRequest;
 import edu.tcu.cs.projectpulse.system.Result;
 import edu.tcu.cs.projectpulse.system.StatusCode;
-import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,22 +19,23 @@ public class InvitationController {
     }
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     public Result generate() {
         InvitationResponse response = service.generateInvitation();
         return new Result(true, StatusCode.SUCCESS, "Invitation link generated.", response);
+    }
+
+    @PostMapping("/instructor")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Result generateInstructor() {
+        InvitationResponse response = service.generateInstructorInvitation();
+        return new Result(true, StatusCode.SUCCESS, "Instructor invitation link generated.", response);
     }
 
     @GetMapping
     public Result findAll() {
         List<InvitationResponse> invitations = service.findAll();
         return new Result(true, StatusCode.SUCCESS, "Find All Success", invitations);
-    }
-
-    @PostMapping("/instructors")
-    @ResponseStatus(HttpStatus.CREATED)
-    public Result inviteInstructors(@Valid @RequestBody InviteInstructorsRequest request) {
-        List<InvitationResponse> responses = service.inviteInstructors(request.emails());
-        return new Result(true, StatusCode.SUCCESS, responses.size() + " invitation(s) sent.", responses);
     }
 
     @GetMapping("/{token}")

@@ -3,7 +3,9 @@ package edu.tcu.cs.projectpulse.auth;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.tcu.cs.projectpulse.TestJwtHelper;
 import edu.tcu.cs.projectpulse.invitation.InvitationRepository;
+import edu.tcu.cs.projectpulse.user.UserEntity;
 import edu.tcu.cs.projectpulse.user.UserRepository;
+import edu.tcu.cs.projectpulse.user.UserRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +14,10 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import edu.tcu.cs.projectpulse.invitation.InvitationEntity;
+import edu.tcu.cs.projectpulse.invitation.InvitationStatus;
 
 import java.util.Map;
 
@@ -36,11 +42,30 @@ class AuthControllerIntegrationTest {
         mockMvc = MockMvcBuilders.webAppContextSetup(wac)
                 .apply(springSecurity())
                 .build();
-        // Clean up registrations and invitations between tests; leave seeded users intact
-        userRepository.findAll().stream()
-                .filter(u -> !u.getEmail().endsWith("@tcu.edu") || u.getEmail().equals("new@student.com"))
-                .forEach(u -> userRepository.delete(u));
+
         invitationRepository.deleteAll();
+        userRepository.deleteAll();
+
+        UserEntity admin = new UserEntity();
+        admin.setFirstName("Admin"); admin.setLastName("User"); admin.setEmail("admin@tcu.edu");
+        admin.setRole(UserRole.ADMIN);
+        admin.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
+        admin.setEnabled(true);
+        userRepository.save(admin);
+
+        UserEntity instructor = new UserEntity();
+        instructor.setFirstName("Dr."); instructor.setLastName("Johnson"); instructor.setEmail("johnson@tcu.edu");
+        instructor.setRole(UserRole.INSTRUCTOR);
+        instructor.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
+        instructor.setEnabled(true);
+        userRepository.save(instructor);
+
+        UserEntity alice = new UserEntity();
+        alice.setFirstName("Alice"); alice.setLastName("Chen"); alice.setEmail("alice@tcu.edu");
+        alice.setRole(UserRole.STUDENT);
+        alice.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
+        alice.setEnabled(true);
+        userRepository.save(alice);
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
@@ -288,5 +313,80 @@ class AuthControllerIntegrationTest {
     void getMe_withoutJwt_returns403() throws Exception {
         mockMvc.perform(get("/api/v1/users/me"))
                 .andExpect(status().isForbidden());
+    }
+
+    // ── Instructor Registration ──────────────────────────────────────────────
+
+    @Test
+    void register_instructorLink_validAccessCode_returns200WithInstructorRole() throws Exception {
+        JsonNode invData = createInstructorInvitationData();
+        String token     = invData.path("token").asText();
+        String code      = invData.path("accessCode").asText();
+
+        var body = Map.of("firstName", "New", "lastName", "Instructor",
+                "email", "newinstructor@tcu.edu", "password", "password123",
+                "token", token, "accessCode", code);
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.role").value("INSTRUCTOR"));
+
+        // Invitation should now be ACCEPTED (single-use)
+        mockMvc.perform(get("/api/v1/invitations/" + token))
+                .andExpect(jsonPath("$.data.status").value("ACCEPTED"));
+    }
+
+    @Test
+    void register_instructorLink_invalidAccessCode_returns400() throws Exception {
+        JsonNode invData = createInstructorInvitationData();
+        String token     = invData.path("token").asText();
+
+        var body = Map.of("firstName", "New", "lastName", "Instructor",
+                "email", "badinstructor@tcu.edu", "password", "password123",
+                "token", token, "accessCode", "WRONG1");
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void register_instructorLink_alreadyAccepted_returns409() throws Exception {
+        JsonNode invData = createInstructorInvitationData();
+        String token     = invData.path("token").asText();
+        String code      = invData.path("accessCode").asText();
+
+        // First instructor registers
+        var body1 = Map.of("firstName", "First", "lastName", "Instructor",
+                "email", "first.instructor@tcu.edu", "password", "password123",
+                "token", token, "accessCode", code);
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body1)))
+                .andExpect(status().isOk());
+
+        // Second attempt on same (now ACCEPTED) link must fail with 409
+        var body2 = Map.of("firstName", "Second", "lastName", "Instructor",
+                "email", "second.instructor@tcu.edu", "password", "password123",
+                "token", token, "accessCode", code);
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body2)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    // ── Helper ───────────────────────────────────────────────────────────────
+
+    private JsonNode createInstructorInvitationData() throws Exception {
+        String response = mockMvc.perform(post("/api/v1/invitations/instructor")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(response).path("data");
     }
 }

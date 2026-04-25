@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { invitationsApi } from '../../api/invitations.js'
 import { useAuthStore } from '../../stores/auth'
@@ -8,21 +8,33 @@ const route      = useRoute()
 const router     = useRouter()
 const auth       = useAuthStore()
 
-const loading     = ref(true)
-const validInvite = ref(false)
+const loading      = ref(true)
+const validInvite  = ref(false)
 const linkDisabled = ref(false)
-const inviteData  = ref(null)
+const linkAccepted = ref(false)
+const inviteData   = ref(null)
 
-const form        = ref({ firstName: '', lastName: '', email: '', password: '' })
+const isInstructor = computed(() => inviteData.value?.role === 'INSTRUCTOR')
+
+const form = ref({
+  firstName: '', middleInitial: '', lastName: '',
+  email: '', password: '', confirmPassword: '', accessCode: '',
+})
 const fieldErrors = ref({})
 const submitError = ref(null)
 const submitting  = ref(false)
+
+const passwordMismatch = computed(() =>
+  isInstructor.value && form.value.confirmPassword !== '' && form.value.password !== form.value.confirmPassword
+)
 
 onMounted(async () => {
   try {
     const res = await invitationsApi.validateToken(route.params.token)
     if (res.data?.status === 'DISABLED') {
       linkDisabled.value = true
+    } else if (res.data?.status === 'ACCEPTED') {
+      linkAccepted.value = true
     } else {
       inviteData.value = res.data
       validInvite.value = true
@@ -39,13 +51,34 @@ onMounted(async () => {
 async function submit() {
   submitError.value = null
   fieldErrors.value = {}
+
+  if (isInstructor.value && form.value.password !== form.value.confirmPassword) {
+    submitError.value = 'Passwords do not match.'
+    return
+  }
+
   submitting.value = true
   try {
-    await auth.register({ ...form.value, token: route.params.token })
+    const payload = {
+      firstName: form.value.firstName,
+      lastName:  form.value.lastName,
+      email:     form.value.email,
+      password:  form.value.password,
+      token:     route.params.token,
+    }
+    if (isInstructor.value) {
+      payload.middleInitial = form.value.middleInitial || null
+      payload.accessCode    = form.value.accessCode
+    }
+    await auth.register(payload)
     router.push('/login?registered=true')
   } catch (e) {
     if (e.status === 400 && e.data?.data) {
       fieldErrors.value = e.data.data
+    } else if (e.status === 400 && e.message?.toLowerCase().includes('access code')) {
+      submitError.value = e.message
+    } else if (e.status === 409) {
+      submitError.value = 'This link has already been used. Please contact your admin for a new link.'
     } else if (e.status === 410) {
       submitError.value = e.message
     } else {
@@ -67,19 +100,25 @@ async function submit() {
         Validating invitation link…
       </div>
 
+      <!-- Valid invite form -->
       <div v-else-if="validInvite">
-        <p class="reg-sub">Create your account to get started.</p>
+        <p class="reg-sub">{{ isInstructor ? 'Set up your instructor account.' : 'Create your account to get started.' }}</p>
 
         <div v-if="submitError" class="alert alert-warning" style="margin-bottom:14px">
           {{ submitError }}
         </div>
 
         <form @submit.prevent="submit">
-          <div class="row-fields">
+          <!-- Name row -->
+          <div class="row-fields" :style="isInstructor ? 'grid-template-columns:1fr .4fr 1fr' : ''">
             <div class="field">
               <label class="field-label">First Name</label>
               <input v-model="form.firstName" type="text" class="field-input" :class="{ error: fieldErrors.firstName }" placeholder="Alice" required />
               <span v-if="fieldErrors.firstName" class="field-error">{{ fieldErrors.firstName }}</span>
+            </div>
+            <div v-if="isInstructor" class="field">
+              <label class="field-label">M.I.</label>
+              <input v-model="form.middleInitial" type="text" class="field-input" maxlength="1" placeholder="A" />
             </div>
             <div class="field">
               <label class="field-label">Last Name</label>
@@ -100,8 +139,27 @@ async function submit() {
             <span v-if="fieldErrors.password" class="field-error">{{ fieldErrors.password }}</span>
           </div>
 
-          <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;font-size:.95rem;margin-top:4px" :disabled="submitting">
-            {{ submitting ? 'Creating account…' : 'Create Account' }}
+          <!-- Confirm password — instructor only -->
+          <div v-if="isInstructor" class="field">
+            <label class="field-label">Confirm Password</label>
+            <input v-model="form.confirmPassword" type="password" class="field-input" :class="{ error: passwordMismatch }" required autocomplete="new-password" />
+            <span v-if="passwordMismatch" class="field-error">Passwords do not match.</span>
+          </div>
+
+          <!-- Access code — instructor only -->
+          <div v-if="isInstructor" class="field">
+            <label class="field-label">Access Code <span class="muted-label">(provided by admin)</span></label>
+            <input v-model="form.accessCode" type="text" class="field-input" :class="{ error: fieldErrors.accessCode }" maxlength="6" placeholder="a1B2c3" required />
+            <span v-if="fieldErrors.accessCode" class="field-error">{{ fieldErrors.accessCode }}</span>
+          </div>
+
+          <button
+            type="submit"
+            class="btn btn-primary"
+            style="width:100%;justify-content:center;padding:11px;font-size:.95rem;margin-top:4px"
+            :disabled="submitting || (isInstructor && passwordMismatch)"
+          >
+            {{ submitting ? 'Creating account…' : (isInstructor ? 'Create Instructor Account' : 'Create Account') }}
           </button>
         </form>
 
@@ -110,6 +168,7 @@ async function submit() {
         </p>
       </div>
 
+      <!-- Disabled link -->
       <div v-else-if="linkDisabled">
         <h2 style="margin:0 0 16px 0;color:#4D1979">Invitation Link Disabled</h2>
         <div class="alert alert-disabled" style="margin-bottom:16px">
@@ -118,6 +177,16 @@ async function submit() {
         <RouterLink to="/login" style="display:inline-block;margin-top:4px">Return to Login</RouterLink>
       </div>
 
+      <!-- Already-used instructor link -->
+      <div v-else-if="linkAccepted">
+        <h2 style="margin:0 0 16px 0;color:#4D1979">Invitation Link Already Used</h2>
+        <div class="alert alert-disabled" style="margin-bottom:16px">
+          This invitation link has already been used to create an account. Please contact your admin for a new link.
+        </div>
+        <RouterLink to="/login" style="display:inline-block;margin-top:4px">Return to Login</RouterLink>
+      </div>
+
+      <!-- Not found fallback (shouldn't normally show — we redirect) -->
       <div v-else>
         <h2 style="margin:0 0 16px 0;color:#c62828">Invalid Invitation</h2>
         <div class="alert alert-warning">
@@ -131,7 +200,7 @@ async function submit() {
 
 <style scoped>
 .reg-page   { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #3a1159, #4D1979 55%, #6b2ba0); padding: 20px; }
-.reg-panel  { background: #fff; border-radius: 14px; padding: 36px; width: 100%; max-width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+.reg-panel  { background: #fff; border-radius: 14px; padding: 36px; width: 100%; max-width: 520px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
 .login-logo { display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; background: #4D1979; color: #fff; border-radius: 12px; font-size: 1.5rem; font-weight: 800; margin-bottom: 10px; }
 .reg-title  { font-size: 1.7rem; font-weight: 800; color: #4D1979; margin: 0 0 4px 0; }
 .reg-sub    { color: #6b6480; font-size: .85rem; margin: 0 0 20px 0; }

@@ -39,8 +39,11 @@ public class AuthService {
         InvitationEntity invitation = invitationRepository.findByToken(req.token())
                 .orElseThrow(() -> new InvitationNotFoundException(req.token()));
 
-        if (invitation.getStatus() != InvitationStatus.ACTIVE) {
+        if (invitation.getStatus() == InvitationStatus.DISABLED) {
             throw new InvitationDisabledException();
+        }
+        if (invitation.getStatus() == InvitationStatus.ACCEPTED) {
+            throw new InvitationAlreadyUsedException();
         }
 
         if (userRepository.findByEmail(req.email()).isPresent()) {
@@ -51,12 +54,23 @@ public class AuthService {
         user.setFirstName(req.firstName());
         user.setLastName(req.lastName());
         user.setEmail(req.email());
-        user.setRole(UserRole.STUDENT);
         user.setPassword(passwordEncoder.encode(req.password()));
         user.setEnabled(true);
         user.setInvitationToken(req.token());
-        user = userRepository.save(user);
 
+        if (invitation.getRole() == UserRole.INSTRUCTOR) {
+            if (req.accessCode() == null || !req.accessCode().equals(invitation.getAccessCode())) {
+                throw new InvalidAccessCodeException();
+            }
+            user.setRole(UserRole.INSTRUCTOR);
+            user.setMiddleInitial(req.middleInitial());
+            invitation.setStatus(InvitationStatus.ACCEPTED);
+            invitationRepository.save(invitation);
+        } else {
+            user.setRole(UserRole.STUDENT);
+        }
+
+        user = userRepository.save(user);
         return toAuthResponse(user);
     }
 

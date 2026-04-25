@@ -39,6 +39,9 @@ public class UserEntity {
     @Column(nullable = true)
     private String invitationToken;
 
+    @Column(length = 1)
+    private String middleInitial;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -68,6 +71,9 @@ public class UserEntity {
 
     public String getInvitationToken() { return invitationToken; }
     public void setInvitationToken(String invitationToken) { this.invitationToken = invitationToken; }
+
+    public String getMiddleInitial() { return middleInitial; }
+    public void setMiddleInitial(String middleInitial) { this.middleInitial = middleInitial; }
 
     public String getName() {
         String ln = lastName != null ? lastName : "";

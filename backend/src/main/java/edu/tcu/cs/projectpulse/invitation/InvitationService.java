@@ -12,20 +12,19 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 @Service
 @Transactional
 public class InvitationService {
 
     private static final Logger log = LoggerFactory.getLogger(InvitationService.class);
-    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[\\w.+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,}$");
+    private static final String ACCESS_CODE_CHARS =
+            "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     private final InvitationRepository repository;
     private final UserRepository userRepository;
@@ -46,46 +45,24 @@ public class InvitationService {
         entity.setStatus(InvitationStatus.ACTIVE);
         entity.setCreatedAt(LocalDateTime.now());
         entity.setInvitedBy(invitedBy);
+        entity.setRole(UserRole.STUDENT);
         entity = repository.save(entity);
         return toResponse(entity);
     }
 
-    public List<InvitationResponse> inviteInstructors(String emailsRaw) {
-        String adminEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+    public InvitationResponse generateInstructorInvitation() {
+        String invitedBy = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        List<String> emails = Arrays.stream(emailsRaw.split(";"))
-                .map(String::trim)
-                .filter(e -> !e.isEmpty())
-                .toList();
-
-        if (emails.isEmpty()) {
-            throw new IllegalArgumentException("At least one email address is required.");
-        }
-
-        List<String> invalid = emails.stream()
-                .filter(e -> !EMAIL_PATTERN.matcher(e).matches())
-                .toList();
-        if (!invalid.isEmpty()) {
-            throw new IllegalArgumentException("Invalid email address(es): " + String.join(", ", invalid));
-        }
-
-        List<InvitationResponse> results = new ArrayList<>();
-        for (String email : emails) {
-            InvitationEntity entity = new InvitationEntity();
-            entity.setToken(UUID.randomUUID().toString());
-            entity.setStatus(InvitationStatus.ACTIVE);
-            entity.setCreatedAt(LocalDateTime.now());
-            entity.setInvitedBy(adminEmail);
-            entity.setEmail(email);
-            entity.setRole(UserRole.INSTRUCTOR);
-            entity = repository.save(entity);
-
-            String link = baseUrl + "/register/" + entity.getToken();
-            log.info("Instructor invitation for {}: {}", email, link);
-
-            results.add(toResponse(entity));
-        }
-        return results;
+        InvitationEntity entity = new InvitationEntity();
+        entity.setToken(UUID.randomUUID().toString());
+        entity.setStatus(InvitationStatus.ACTIVE);
+        entity.setCreatedAt(LocalDateTime.now());
+        entity.setInvitedBy(invitedBy);
+        entity.setRole(UserRole.INSTRUCTOR);
+        entity.setAccessCode(generateAccessCode());
+        entity = repository.save(entity);
+        log.info("Instructor invitation created: token={}", entity.getToken());
+        return toResponse(entity);
     }
 
     @Transactional(readOnly = true)
@@ -117,6 +94,9 @@ public class InvitationService {
     public InvitationResponse enableInvitation(String token) {
         InvitationEntity entity = repository.findByToken(token)
                 .orElseThrow(() -> new InvitationNotFoundException(token));
+        if (entity.getStatus() == InvitationStatus.ACCEPTED) {
+            throw new IllegalStateException("Cannot re-enable a used instructor invitation.");
+        }
         if (entity.getStatus() == InvitationStatus.ACTIVE) {
             throw new IllegalStateException("Invitation is already active.");
         }
@@ -151,6 +131,17 @@ public class InvitationService {
         dto.setRegistrationLink(baseUrl + "/register/" + entity.getToken());
         dto.setUsageCount(acceptedUsers.size());
         dto.setAcceptedUsers(acceptedUsers);
+        dto.setRole(entity.getRole() != null ? entity.getRole().name() : "STUDENT");
+        dto.setAccessCode(entity.getAccessCode());
         return dto;
+    }
+
+    private String generateAccessCode() {
+        SecureRandom rng = new SecureRandom();
+        StringBuilder sb = new StringBuilder(6);
+        for (int i = 0; i < 6; i++) {
+            sb.append(ACCESS_CODE_CHARS.charAt(rng.nextInt(ACCESS_CODE_CHARS.length())));
+        }
+        return sb.toString();
     }
 }

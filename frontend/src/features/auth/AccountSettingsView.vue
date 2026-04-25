@@ -4,23 +4,33 @@ import AppLayout from '../../components/AppLayout.vue'
 import { useAuthStore } from '../../stores/auth'
 import { usersApi } from '../../api/users'
 
-const auth    = useAuthStore()
-const name    = ref('')
-const email   = ref('')
-const profile = ref(null)
-const loading = ref(true)
-const saving  = ref(false)
-const success = ref(null)
-const error   = ref(null)
+const auth          = useAuthStore()
+const firstName     = ref('')
+const lastName      = ref('')
+const middleInitial = ref('')
+const email         = ref('')
+const profile       = ref(null)
+const loading       = ref(true)
+const saving        = ref(false)
+const success       = ref(null)
+const error         = ref(null)
 
-const originalName  = ref('')
-const originalEmail = ref('')
-const dialogOpen    = ref(false)
+const originalFirstName     = ref('')
+const originalLastName      = ref('')
+const originalMiddleInitial = ref('')
+const originalEmail         = ref('')
+const dialogOpen            = ref(false)
 
 const pendingChanges = computed(() => {
   const changes = []
-  if (name.value !== originalName.value)   changes.push({ field: 'Full Name', from: originalName.value,  to: name.value })
-  if (email.value !== originalEmail.value) changes.push({ field: 'Email',     from: originalEmail.value, to: email.value })
+  if (firstName.value !== originalFirstName.value)
+    changes.push({ field: 'First Name', from: originalFirstName.value, to: firstName.value })
+  if (lastName.value !== originalLastName.value)
+    changes.push({ field: 'Last Name', from: originalLastName.value, to: lastName.value })
+  if (auth.user?.role === 'instructor' && middleInitial.value !== originalMiddleInitial.value)
+    changes.push({ field: 'Middle Initial', from: originalMiddleInitial.value, to: middleInitial.value })
+  if (email.value !== originalEmail.value)
+    changes.push({ field: 'Email', from: originalEmail.value, to: email.value })
   return changes
 })
 
@@ -28,10 +38,14 @@ onMounted(async () => {
   try {
     const res = await usersApi.getProfile()
     profile.value = res.data
-    name.value  = res.data.name
-    email.value = res.data.email
-    originalName.value  = res.data.name
-    originalEmail.value = res.data.email
+    firstName.value     = res.data.firstName  ?? ''
+    lastName.value      = res.data.lastName   ?? ''
+    middleInitial.value = res.data.middleInitial ?? ''
+    email.value         = res.data.email
+    originalFirstName.value     = firstName.value
+    originalLastName.value      = lastName.value
+    originalMiddleInitial.value = middleInitial.value
+    originalEmail.value         = email.value
   } catch {
     error.value = 'Failed to load profile.'
   } finally {
@@ -53,10 +67,17 @@ async function doSave() {
   dialogOpen.value = false
   saving.value = true
   try {
-    const res = await usersApi.updateProfile({ name: name.value, email: email.value })
+    const res = await usersApi.updateProfile({
+      firstName:     firstName.value,
+      lastName:      lastName.value,
+      middleInitial: middleInitial.value || null,
+      email:         email.value,
+    })
     auth.updateSession(res.data)
-    originalName.value  = name.value
-    originalEmail.value = email.value
+    originalFirstName.value     = firstName.value
+    originalLastName.value      = lastName.value
+    originalMiddleInitial.value = middleInitial.value
+    originalEmail.value         = email.value
     success.value = 'Profile updated.'
   } catch (e) {
     error.value = e.message || 'Failed to save profile.'
@@ -81,10 +102,38 @@ async function doSave() {
           <div v-if="success" class="alert alert-success">{{ success }}</div>
           <div v-if="error"   class="alert alert-error">{{ error }}</div>
 
-          <div class="field">
-            <label class="field-label">Full Name</label>
-            <input v-model="name" type="text" class="field-input" placeholder="Your name" />
-          </div>
+          <!-- Instructor: First Name, Middle Initial, Last Name -->
+          <template v-if="auth.user?.role === 'instructor'">
+            <div class="field-row">
+              <div class="field field-grow">
+                <label class="field-label">First Name</label>
+                <input v-model="firstName" type="text" class="field-input" placeholder="First name" />
+              </div>
+              <div class="field field-mi">
+                <label class="field-label">M.I.</label>
+                <input v-model="middleInitial" type="text" class="field-input" placeholder="M" maxlength="1" />
+              </div>
+              <div class="field field-grow">
+                <label class="field-label">Last Name</label>
+                <input v-model="lastName" type="text" class="field-input" placeholder="Last name" />
+              </div>
+            </div>
+          </template>
+
+          <!-- Student / Admin: First Name, Last Name -->
+          <template v-else>
+            <div class="field-row">
+              <div class="field field-grow">
+                <label class="field-label">First Name</label>
+                <input v-model="firstName" type="text" class="field-input" placeholder="First name" />
+              </div>
+              <div class="field field-grow">
+                <label class="field-label">Last Name</label>
+                <input v-model="lastName" type="text" class="field-input" placeholder="Last name" />
+              </div>
+            </div>
+          </template>
+
           <div class="field">
             <label class="field-label">Email</label>
             <input v-model="email" type="email" class="field-input" placeholder="you@tcu.edu" />
@@ -114,6 +163,25 @@ async function doSave() {
                 <span class="detail-sub">{{ profile.instructorEmail }}</span>
               </span>
               <span class="detail-value" v-else>Not assigned</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Instructor-only details -->
+        <div v-else-if="auth.user?.role === 'instructor'" class="card">
+          <h3 class="card-title">Instructor Details</h3>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">Assigned Section</span>
+              <span class="detail-value">{{ profile?.supervisedSectionName ?? 'Not assigned to a section yet' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Admin Contact</span>
+              <span class="detail-value" v-if="profile?.adminName">
+                {{ profile.adminName }}
+                <span class="detail-sub">{{ profile.adminEmail }}</span>
+              </span>
+              <span class="detail-value" v-else>—</span>
             </div>
           </div>
         </div>
@@ -163,6 +231,9 @@ async function doSave() {
 .field-label   { display: block; font-size: .82rem; font-weight: 600; color: #4a4060; margin-bottom: 5px; }
 .field-input   { width: 100%; padding: 9px 12px; border: 1.5px solid #d8d3e3; border-radius: 8px; font-size: .9rem; box-sizing: border-box; outline: none; transition: border-color .15s; }
 .field-input:focus { border-color: #4D1979; }
+.field-row     { display: flex; gap: 12px; }
+.field-grow    { flex: 1; }
+.field-mi      { width: 72px; flex-shrink: 0; }
 .btn           { display: inline-flex; align-items: center; padding: 9px 20px; border-radius: 8px; font-size: .88rem; font-weight: 600; cursor: pointer; border: none; }
 .btn-primary   { background: #4D1979; color: #fff; }
 .btn-primary:hover:not(:disabled) { background: #3a1159; }

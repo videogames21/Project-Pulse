@@ -14,6 +14,8 @@ public class InvitationResponse {
     private String email;
     private int usageCount;
     private List<AcceptedUserInfo> acceptedUsers;
+    private String role;
+    private String accessCode;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -44,4 +46,10 @@ public class InvitationResponse {
 
     public List<AcceptedUserInfo> getAcceptedUsers() { return acceptedUsers; }
     public void setAcceptedUsers(List<AcceptedUserInfo> acceptedUsers) { this.acceptedUsers = acceptedUsers; }
+
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
+
+    public String getAccessCode() { return accessCode; }
+    public void setAccessCode(String accessCode) { this.accessCode = accessCode; }
 }

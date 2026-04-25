@@ -242,7 +242,7 @@ class UserControllerIntegrationTest {
     @Test
     void updateProfile_validNameChange_returns200WithNewJwt() throws Exception {
         String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
-        var body = Map.of("name", "Updated Name", "email", "testuser@example.com");
+        var body = Map.of("firstName", "Updated", "lastName", "Name", "email", "testuser@example.com");
 
         mockMvc.perform(put("/api/v1/users/me")
                         .header("Authorization", jwt)
@@ -258,7 +258,7 @@ class UserControllerIntegrationTest {
     @Test
     void updateProfile_validEmailChange_returns200WithUpdatedEmail() throws Exception {
         String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
-        var body = Map.of("name", "Test User", "email", "changed@example.com");
+        var body = Map.of("firstName", "Test", "lastName", "User", "email", "changed@example.com");
 
         mockMvc.perform(put("/api/v1/users/me")
                         .header("Authorization", jwt)
@@ -272,7 +272,7 @@ class UserControllerIntegrationTest {
     @Test
     void updateProfile_sameEmailNoChange_returns200() throws Exception {
         String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
-        var body = Map.of("name", "Test User", "email", "testuser@example.com");
+        var body = Map.of("firstName", "Test", "lastName", "User", "email", "testuser@example.com");
 
         mockMvc.perform(put("/api/v1/users/me")
                         .header("Authorization", jwt)
@@ -285,7 +285,7 @@ class UserControllerIntegrationTest {
     @Test
     void updateProfile_emailTakenByAnotherUser_returns409() throws Exception {
         String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
-        var body = Map.of("name", "Test User", "email", "admin@tcu.edu");
+        var body = Map.of("firstName", "Test", "lastName", "User", "email", "admin@tcu.edu");
 
         mockMvc.perform(put("/api/v1/users/me")
                         .header("Authorization", jwt)
@@ -298,7 +298,7 @@ class UserControllerIntegrationTest {
     @Test
     void updateProfile_blankName_returns400() throws Exception {
         String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
-        var body = Map.of("name", "", "email", "testuser@example.com");
+        var body = Map.of("firstName", "", "lastName", "User", "email", "testuser@example.com");
 
         mockMvc.perform(put("/api/v1/users/me")
                         .header("Authorization", jwt)
@@ -311,7 +311,7 @@ class UserControllerIntegrationTest {
     @Test
     void updateProfile_invalidEmailFormat_returns400() throws Exception {
         String jwt = registerStudent("Test", "User", "testuser@example.com", "password123");
-        var body = Map.of("name", "Test User", "email", "not-a-valid-email");
+        var body = Map.of("firstName", "Test", "lastName", "User", "email", "not-a-valid-email");
 
         mockMvc.perform(put("/api/v1/users/me")
                         .header("Authorization", jwt)
@@ -323,7 +323,7 @@ class UserControllerIntegrationTest {
 
     @Test
     void updateProfile_withoutJwt_returns403() throws Exception {
-        var body = Map.of("name", "Nobody", "email", "nobody@example.com");
+        var body = Map.of("firstName", "Nobody", "lastName", "Test", "email", "nobody@example.com");
 
         mockMvc.perform(put("/api/v1/users/me")
                         .contentType(MediaType.APPLICATION_JSON)

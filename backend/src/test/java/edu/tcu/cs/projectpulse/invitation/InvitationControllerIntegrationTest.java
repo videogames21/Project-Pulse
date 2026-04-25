@@ -53,10 +53,10 @@ class InvitationControllerIntegrationTest {
     // ── POST /api/v1/invitations ─────────────────────────────────────────────
 
     @Test
-    void generateInvitation_success_returns200WithLink() throws Exception {
+    void generateInvitation_success_returns201WithLink() throws Exception {
         mockMvc.perform(post("/api/v1/invitations")
                         .header("Authorization", jwtHelper.adminToken()))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.registrationLink", startsWith("http://localhost:3000/register/")))
                 .andExpect(jsonPath("$.data.tokenShort", hasLength(8)))
@@ -84,7 +84,7 @@ class InvitationControllerIntegrationTest {
     void generateInvitation_persistsToDatabase() throws Exception {
         mockMvc.perform(post("/api/v1/invitations")
                         .header("Authorization", jwtHelper.adminToken()))
-                .andExpect(status().isOk());
+                .andExpect(status().isCreated());
 
         assertThat(invitationRepository.count()).isEqualTo(1);
     }
@@ -230,5 +230,64 @@ class InvitationControllerIntegrationTest {
 
         mockMvc.perform(delete("/api/v1/invitations/" + token))
                 .andExpect(status().isForbidden());
+    }
+
+    // ── POST /api/v1/invitations/instructor ──────────────────────────────────
+
+    @Test
+    void generateInstructorLink_returns201WithAccessCodeAndRole() throws Exception {
+        mockMvc.perform(post("/api/v1/invitations/instructor")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.role").value("INSTRUCTOR"))
+                .andExpect(jsonPath("$.data.accessCode").isString())
+                .andExpect(jsonPath("$.data.accessCode", hasLength(6)))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+    }
+
+    @Test
+    void generateInstructorLink_withoutJwt_returns403() throws Exception {
+        mockMvc.perform(post("/api/v1/invitations/instructor"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void enableInvitation_accepted_returns409() throws Exception {
+        // Generate instructor link, manually set to ACCEPTED
+        String token = createInstructorInvitation();
+        InvitationEntity entity = invitationRepository.findByToken(token).orElseThrow();
+        entity.setStatus(InvitationStatus.ACCEPTED);
+        invitationRepository.save(entity);
+
+        mockMvc.perform(patch("/api/v1/invitations/" + token + "/enable")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void deleteInvitation_whenAccepted_returns200() throws Exception {
+        String token = createInstructorInvitation();
+        InvitationEntity entity = invitationRepository.findByToken(token).orElseThrow();
+        entity.setStatus(InvitationStatus.ACCEPTED);
+        invitationRepository.save(entity);
+
+        mockMvc.perform(delete("/api/v1/invitations/" + token)
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        assertThat(invitationRepository.count()).isEqualTo(0);
+    }
+
+    // ── Helper ──────────────────────────────────────────────────────────────
+
+    private String createInstructorInvitation() throws Exception {
+        String response = mockMvc.perform(post("/api/v1/invitations/instructor")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andReturn().getResponse().getContentAsString();
+        String link = objectMapper.readTree(response).path("data").path("registrationLink").asText();
+        return link.substring(link.lastIndexOf('/') + 1);
     }
 }
