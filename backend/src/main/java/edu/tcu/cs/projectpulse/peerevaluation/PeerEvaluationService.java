@@ -1,9 +1,11 @@
 package edu.tcu.cs.projectpulse.peerevaluation;
 
+import edu.tcu.cs.projectpulse.peerevaluation.dto.CriterionAverageScoreResponse;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.PeerEvaluationRequest;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.PeerEvaluationResponse;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.ScoreRequest;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.ScoreResponse;
+import edu.tcu.cs.projectpulse.peerevaluation.dto.StudentPeerEvaluationReportResponse;
 import edu.tcu.cs.projectpulse.user.UserEntity;
 import edu.tcu.cs.projectpulse.user.UserNotFoundException;
 import edu.tcu.cs.projectpulse.user.UserRepository;
@@ -11,9 +13,14 @@ import edu.tcu.cs.projectpulse.user.UserRole;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class PeerEvaluationService {
@@ -89,6 +96,62 @@ public class PeerEvaluationService {
 
     public List<PeerEvaluationEntity> findByWeek(LocalDate weekStart) {
         return peerEvaluationRepository.findAllByWeekStart(weekStart);
+    }
+
+    // ── UC-29: Student report ────────────────────────────────────────────────
+
+    public StudentPeerEvaluationReportResponse getStudentReport(Long studentId, LocalDate weekStart) {
+        validateWeekStart(weekStart);
+
+        UserEntity student = userRepository.findById(studentId)
+                .orElseThrow(() -> new UserNotFoundException(studentId));
+
+        List<PeerEvaluationEntity> evaluations =
+                peerEvaluationRepository.findAllByEvaluateeIdAndWeekStart(studentId, weekStart);
+
+        if (evaluations.isEmpty()) {
+            return new StudentPeerEvaluationReportResponse(
+                    studentId, student.getName(), weekStart, 0, List.of(), List.of(), BigDecimal.ZERO);
+        }
+
+        // Per-criterion averages (sorted by criterionId for deterministic output)
+        Map<Long, List<Integer>> scoresByCriterion = new LinkedHashMap<>();
+        for (PeerEvaluationEntity eval : evaluations) {
+            for (PeerEvaluationScoreEntity score : eval.getScores()) {
+                scoresByCriterion
+                        .computeIfAbsent(score.getCriterionId(), k -> new ArrayList<>())
+                        .add(score.getScore());
+            }
+        }
+
+        List<CriterionAverageScoreResponse> averageCriterionScores = scoresByCriterion.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> {
+                    BigDecimal sum = entry.getValue().stream()
+                            .map(BigDecimal::valueOf)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    BigDecimal avg = sum.divide(BigDecimal.valueOf(entry.getValue().size()), 2, RoundingMode.HALF_UP);
+                    return new CriterionAverageScoreResponse(entry.getKey(), avg);
+                })
+                .toList();
+
+        // Average grade = average of per-evaluation totals
+        BigDecimal totalSum = evaluations.stream()
+                .map(eval -> eval.getScores().stream()
+                        .map(s -> BigDecimal.valueOf(s.getScore()))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal averageGrade = totalSum.divide(BigDecimal.valueOf(evaluations.size()), 2, RoundingMode.HALF_UP);
+
+        // Public comments — filter blank/null; private comments excluded (BR-5)
+        List<String> publicComments = evaluations.stream()
+                .map(PeerEvaluationEntity::getPublicComments)
+                .filter(c -> c != null && !c.isBlank())
+                .toList();
+
+        return new StudentPeerEvaluationReportResponse(
+                studentId, student.getName(), weekStart,
+                evaluations.size(), averageCriterionScores, publicComments, averageGrade);
     }
 
     // ── Internals ────────────────────────────────────────────────────────────
