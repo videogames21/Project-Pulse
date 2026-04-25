@@ -38,9 +38,9 @@ onMounted(async () => {
 
     members.value = [
       self
-        ? { id: self.id, name: `${self.name} (You)` }
-        : { id: auth.user.id, name: `${auth.user.name} (You)` },
-      ...rest.map(s => ({ id: s.id, name: s.name })),
+        ? { id: self.id, name: `${self.firstName} ${self.lastName} (You)` }
+        : { id: auth.user.id, name: `${auth.user.firstName} ${auth.user.lastName} (You)` },
+      ...rest.map(s => ({ id: s.id, name: `${s.firstName} ${s.lastName}` })),
     ]
 
     scores.value   = Object.fromEntries(

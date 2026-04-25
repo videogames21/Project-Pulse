@@ -1,7 +1,7 @@
 export const DEMO_USERS = {
-  student:    { id: 1, name: 'Alice Chen',  email: 'alice@tcu.edu',   role: 'student',    team: 'Team Alpha', section: '2024-2025' },
-  instructor: { id: 2, name: 'Dr. Johnson', email: 'johnson@tcu.edu', role: 'instructor', section: '2024-2025' },
-  admin:      { id: 3, name: 'Admin User',  email: 'admin@tcu.edu',   role: 'admin' },
+  student:    { id: 3, firstName: 'Alice',  lastName: 'Johnson', email: 'alice@tcu.edu',   role: 'student',    team: 'Team Alpha', section: '2024-2025' },
+  instructor: { id: 2, firstName: 'Dr.',    lastName: 'Johnson', email: 'johnson@tcu.edu', role: 'instructor', section: '2024-2025' },
+  admin:      { id: 3, firstName: 'Admin',  lastName: 'User',    email: 'admin@tcu.edu',   role: 'admin' },
 }
 
 export const WAR_CATEGORIES = [
@@ -47,7 +47,7 @@ export const MOCK_MY_REPORT = {
 }
 
 export const MOCK_SECTION_REPORT = [
-  { student: 'Alice Chen',   submitted: true,  total: 54, max: 60, evaluatedBy: 4 },
+  { student: 'Alice Johnson',   submitted: true,  total: 54, max: 60, evaluatedBy: 4 },
   { student: 'Bob Smith',    submitted: true,  total: 49, max: 60, evaluatedBy: 4 },
   { student: 'Carol White',  submitted: false, total: null, max: 60, evaluatedBy: 3 },
   { student: 'David Lee',    submitted: true,  total: 58, max: 60, evaluatedBy: 4 },
@@ -55,7 +55,7 @@ export const MOCK_SECTION_REPORT = [
 ]
 
 export const MOCK_TEAM_WAR = [
-  { student: 'Alice Chen',   submitted: true,  entries: 4, planned: 11, actual: 12 },
+  { student: 'Alice Johnson',   submitted: true,  entries: 4, planned: 11, actual: 12 },
   { student: 'Bob Smith',    submitted: true,  entries: 3, planned:  8, actual:  7 },
   { student: 'Carol White',  submitted: false, entries: 0, planned:  0, actual:  0 },
   { student: 'David Lee',    submitted: true,  entries: 5, planned: 14, actual: 15 },

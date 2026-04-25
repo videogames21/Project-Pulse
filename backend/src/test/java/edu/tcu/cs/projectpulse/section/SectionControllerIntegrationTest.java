@@ -2,6 +2,8 @@ package edu.tcu.cs.projectpulse.section;
 
 import edu.tcu.cs.projectpulse.TestJwtHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.tcu.cs.projectpulse.activeweek.ActiveWeekEntity;
+import edu.tcu.cs.projectpulse.activeweek.ActiveWeekRepository;
 import edu.tcu.cs.projectpulse.rubric.RubricEntity;
 import edu.tcu.cs.projectpulse.rubric.RubricRepository;
 import edu.tcu.cs.projectpulse.team.TeamEntity;
@@ -45,6 +47,9 @@ class SectionControllerIntegrationTest {
     @Autowired
     RubricRepository rubricRepository;
 
+    @Autowired
+    ActiveWeekRepository activeWeekRepository;
+
     MockMvc mockMvc;
 
     ObjectMapper objectMapper = new ObjectMapper();
@@ -52,6 +57,7 @@ class SectionControllerIntegrationTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
+        activeWeekRepository.deleteAll();
         userRepository.deleteAll();
         teamRepository.deleteAll();
         sectionRepository.deleteAll();
@@ -59,7 +65,7 @@ class SectionControllerIntegrationTest {
 
         // Re-seed admin so TestJwtHelper can generate tokens (section tests create their own students/instructors)
         UserEntity admin = new UserEntity();
-        admin.setName("Admin User"); admin.setEmail("admin@tcu.edu");
+        admin.setFirstName("Admin"); admin.setLastName("User"); admin.setEmail("admin@tcu.edu");
         admin.setRole(UserRole.ADMIN);
         admin.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
         admin.setEnabled(true);
@@ -90,17 +96,21 @@ class SectionControllerIntegrationTest {
         return teamRepository.save(t).getId();
     }
 
-    private Long createStudent(String name, String email) {
+    private Long createStudent(String fullName, String email) {
+        String[] parts = fullName.split(" ", 2);
         UserEntity u = new UserEntity();
-        u.setName(name);
+        u.setFirstName(parts[0]);
+        u.setLastName(parts.length > 1 ? parts[1] : "");
         u.setEmail(email);
         u.setRole(UserRole.STUDENT);
         return userRepository.save(u).getId();
     }
 
-    private Long createInstructor(String name, String email) {
+    private Long createInstructor(String fullName, String email) {
+        String[] parts = fullName.split(" ", 2);
         UserEntity u = new UserEntity();
-        u.setName(name);
+        u.setFirstName(parts[0]);
+        u.setLastName(parts.length > 1 ? parts[1] : "");
         u.setEmail(email);
         u.setRole(UserRole.INSTRUCTOR);
         return userRepository.save(u).getId();
@@ -566,12 +576,13 @@ class SectionControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
-                .andExpect(jsonPath("$.data[0].name").value("Dr. Smith"));
+                .andExpect(jsonPath("$.data[0].firstName").value("Dr."))
+                .andExpect(jsonPath("$.data[0].lastName").value("Smith"));
     }
 
     @Test
     void createSection_doesNotAffectStudentList() throws Exception {
-        createStudent("Alice Chen", "alice@tcu.edu");
+        createStudent("Test Student A", "alice@tcu.edu");
 
         mockMvc.perform(post("/api/v1/sections")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -581,7 +592,8 @@ class SectionControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/users"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
-                .andExpect(jsonPath("$.data[0].name").value("Alice Chen"));
+                .andExpect(jsonPath("$.data[0].firstName").value("Test"))
+                .andExpect(jsonPath("$.data[0].lastName").value("Student A"));
     }
 
     // ── GET /api/v1/sections (no filter) ─────────────────────────────────────
@@ -779,7 +791,7 @@ class SectionControllerIntegrationTest {
     void findSectionById_teamWithAssignedStudents_studentsListedInTeamSummary() throws Exception {
         SectionEntity saved    = createSection("2025-2026");
         Long teamId            = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long aliceId           = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId           = createStudent("Test Student A", "alice@tcu.edu");
         Long bobId             = createStudent("Bob Smith",  "bob@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
@@ -791,7 +803,7 @@ class SectionControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.teams[0].students", hasSize(2)))
                 .andExpect(jsonPath("$.data.teams[0].students",
-                        containsInAnyOrder("Alice Chen", "Bob Smith")))
+                        containsInAnyOrder("Test Student A", "Bob Smith")))
                 .andExpect(jsonPath("$.data.teams[0].instructors", hasSize(0)));
     }
 
@@ -816,7 +828,7 @@ class SectionControllerIntegrationTest {
         SectionEntity saved = createSection("2025-2026");
         Long teamId         = createTeamAndReturnId("Team Alpha", "2025-2026");
         Long zoeId          = createStudent("Zoe Adams",  "zoe@tcu.edu");
-        Long aliceId        = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId        = createStudent("Test Student A", "alice@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -825,7 +837,7 @@ class SectionControllerIntegrationTest {
 
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.teams[0].students[0]").value("Alice Chen"))
+                .andExpect(jsonPath("$.data.teams[0].students[0]").value("Test Student A"))
                 .andExpect(jsonPath("$.data.teams[0].students[1]").value("Zoe Adams"));
     }
 
@@ -834,7 +846,7 @@ class SectionControllerIntegrationTest {
         SectionEntity saved  = createSection("2025-2026");
         Long teamAlphaId     = createTeamAndReturnId("Team Alpha", "2025-2026");
         Long teamBetaId      = createTeamAndReturnId("Team Beta",  "2025-2026");
-        Long aliceId         = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId         = createStudent("Test Student A", "alice@tcu.edu");
         Long bobId           = createStudent("Bob Smith",  "bob@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/" + teamAlphaId + "/students")
@@ -849,7 +861,7 @@ class SectionControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.teams[0].name").value("Team Alpha"))
-                .andExpect(jsonPath("$.data.teams[0].students", contains("Alice Chen")))
+                .andExpect(jsonPath("$.data.teams[0].students", contains("Test Student A")))
                 .andExpect(jsonPath("$.data.teams[1].name").value("Team Beta"))
                 .andExpect(jsonPath("$.data.teams[1].students", contains("Bob Smith")));
     }
@@ -949,7 +961,7 @@ class SectionControllerIntegrationTest {
     @Test
     void findSectionById_studentsNotIncludedInInstructorsNotOnTeam() throws Exception {
         SectionEntity saved = createSection("2025-2026");
-        createStudent("Alice Chen", "alice@tcu.edu");
+        createStudent("Test Student A", "alice@tcu.edu");
         createInstructor("Dr. Smith", "smith@tcu.edu");
 
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
@@ -957,7 +969,7 @@ class SectionControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.instructorsNotOnTeam", hasSize(1)))
                 .andExpect(jsonPath("$.data.instructorsNotOnTeam[0]").value("Dr. Smith"))
                 .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(1)))
-                .andExpect(jsonPath("$.data.studentsNotOnTeam[0]").value("Alice Chen"));
+                .andExpect(jsonPath("$.data.studentsNotOnTeam[0]").value("Test Student A"));
     }
 
     // ── UC-3: rubricName ──────────────────────────────────────────────────────
@@ -1062,28 +1074,28 @@ class SectionControllerIntegrationTest {
     @Test
     void findSectionById_unassignedStudents_appearsInStudentsNotOnTeam() throws Exception {
         SectionEntity saved = createSection("2025-2026");
-        createStudent("Alice Chen", "alice@tcu.edu");
+        createStudent("Test Student A", "alice@tcu.edu");
         createStudent("Bob Smith",  "bob@tcu.edu");
 
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(2)))
                 .andExpect(jsonPath("$.data.studentsNotOnTeam",
-                        containsInAnyOrder("Alice Chen", "Bob Smith")));
+                        containsInAnyOrder("Test Student A", "Bob Smith")));
     }
 
     @Test
     void findSectionById_studentsNotOnTeamSortedAlphabetically() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         createStudent("Zoe Adams",  "zoe@tcu.edu");
-        createStudent("Alice Chen", "alice@tcu.edu");
+        createStudent("Test Student A", "alice@tcu.edu");
         createStudent("Mike Wong",  "mike@tcu.edu");
 
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(3)))
-                .andExpect(jsonPath("$.data.studentsNotOnTeam[0]").value("Alice Chen"))
-                .andExpect(jsonPath("$.data.studentsNotOnTeam[1]").value("Mike Wong"))
+                .andExpect(jsonPath("$.data.studentsNotOnTeam[0]").value("Mike Wong"))
+                .andExpect(jsonPath("$.data.studentsNotOnTeam[1]").value("Test Student A"))
                 .andExpect(jsonPath("$.data.studentsNotOnTeam[2]").value("Zoe Adams"));
     }
 
@@ -1091,7 +1103,7 @@ class SectionControllerIntegrationTest {
     void findSectionById_assignedStudentNotInStudentsNotOnTeam() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         Long teamId  = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long aliceId = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
         createStudent("Bob Smith", "bob@tcu.edu");
 
         // Assign Alice via the UC-12 endpoint
@@ -1110,7 +1122,7 @@ class SectionControllerIntegrationTest {
     void findSectionById_allStudentsAssigned_studentsNotOnTeamIsEmpty() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         Long teamId  = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long aliceId = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
         Long bobId   = createStudent("Bob Smith",  "bob@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
@@ -1127,7 +1139,7 @@ class SectionControllerIntegrationTest {
     void findSectionById_removedStudentReturnsToStudentsNotOnTeam() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         Long teamId  = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long aliceId = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -1141,7 +1153,7 @@ class SectionControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(1)))
-                .andExpect(jsonPath("$.data.studentsNotOnTeam[0]").value("Alice Chen"));
+                .andExpect(jsonPath("$.data.studentsNotOnTeam[0]").value("Test Student A"));
     }
 
     // ── UC-10 + UC-3 cross-module: team edit/delete reflected in section view ──
@@ -1230,7 +1242,7 @@ class SectionControllerIntegrationTest {
     void findSectionById_teamDeletedWithStudents_studentsReturnToStudentsNotOnTeam() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         Long teamId  = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long aliceId = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
         Long bobId   = createStudent("Bob Smith",  "bob@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
@@ -1252,7 +1264,7 @@ class SectionControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(2)))
                 .andExpect(jsonPath("$.data.studentsNotOnTeam",
-                        containsInAnyOrder("Alice Chen", "Bob Smith")));
+                        containsInAnyOrder("Test Student A", "Bob Smith")));
     }
 
     // ── UC-19 + UC-3 cross-module: instructor assigned to team via UC-19 ──────
@@ -1304,7 +1316,7 @@ class SectionControllerIntegrationTest {
     void findSectionById_instructorAndStudentOnSameTeam_listedInCorrectColumns() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         Long teamId         = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long aliceId        = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId        = createStudent("Test Student A", "alice@tcu.edu");
         Long drSmithId      = createInstructor("Dr. Smith", "smith@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
@@ -1315,7 +1327,7 @@ class SectionControllerIntegrationTest {
 
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.teams[0].students", contains("Alice Chen")))
+                .andExpect(jsonPath("$.data.teams[0].students", contains("Test Student A")))
                 .andExpect(jsonPath("$.data.teams[0].instructors", contains("Dr. Smith")))
                 .andExpect(jsonPath("$.data.instructorsNotOnTeam", hasSize(0)))
                 .andExpect(jsonPath("$.data.studentsNotOnTeam", hasSize(0)));
@@ -1616,5 +1628,131 @@ class SectionControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.rubricId").doesNotExist());
+    }
+
+    // ── UC-5 + UC-6: editing dates prunes out-of-range active weeks ──────────
+
+    @Test
+    void updateSection_shortenedDateRange_prunesOutOfRangeActiveWeeks() throws Exception {
+        SectionEntity saved = createSection("2025-2026"); // 2025-08-25 to 2026-05-10
+
+        // Save weeks at both ends of the original range
+        ActiveWeekEntity early = new ActiveWeekEntity();
+        early.setSectionId(saved.getId());
+        early.setWeekStartDate(LocalDate.of(2025, 9, 1));  // will stay inside
+        activeWeekRepository.save(early);
+
+        ActiveWeekEntity late = new ActiveWeekEntity();
+        late.setSectionId(saved.getId());
+        late.setWeekStartDate(LocalDate.of(2026, 4, 27));  // will fall outside after shrink
+        activeWeekRepository.save(late);
+
+        // Shorten end date so 2026-04-27 is now out of range
+        var body = Map.of("name", "2025-2026", "startDate", "2025-08-25", "endDate", "2026-04-20");
+        mockMvc.perform(put("/api/v1/sections/{id}", saved.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk());
+
+        // Only the early week should remain
+        assert activeWeekRepository.count() == 1 : "Expected 1 active week after prune, got " + activeWeekRepository.count();
+    }
+
+    @Test
+    void updateSection_weeksStillInRange_notPruned() throws Exception {
+        SectionEntity saved = createSection("2025-2026"); // 2025-08-25 to 2026-05-10
+
+        ActiveWeekEntity w = new ActiveWeekEntity();
+        w.setSectionId(saved.getId());
+        w.setWeekStartDate(LocalDate.of(2025, 9, 1));
+        activeWeekRepository.save(w);
+
+        // Update with same date range — week stays
+        var body = Map.of("name", "2025-2026", "startDate", "2025-08-25", "endDate", "2026-05-10");
+        mockMvc.perform(put("/api/v1/sections/{id}", saved.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk());
+
+        assert activeWeekRepository.count() == 1 : "Week within range should not be pruned";
+    }
+
+    // ── DELETE /api/v1/sections/{id} (UC-6: cascade active weeks) ────────────
+
+    @Test
+    void deleteSection_exists_returns200() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        mockMvc.perform(delete("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void deleteSection_notFound_returns404() throws Exception {
+        mockMvc.perform(delete("/api/v1/sections/{id}", 9999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void deleteSection_removedFromList() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        mockMvc.perform(delete("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/sections"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(0)));
+    }
+
+    @Test
+    void deleteSection_cascadesActiveWeeks_noOrphansRemain() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        // Save two active weeks for this section directly via repo
+        ActiveWeekEntity w1 = new ActiveWeekEntity();
+        w1.setSectionId(saved.getId());
+        w1.setWeekStartDate(LocalDate.of(2025, 9, 1));
+        activeWeekRepository.save(w1);
+
+        ActiveWeekEntity w2 = new ActiveWeekEntity();
+        w2.setSectionId(saved.getId());
+        w2.setWeekStartDate(LocalDate.of(2025, 9, 8));
+        activeWeekRepository.save(w2);
+
+        // Confirm weeks are there
+        assert activeWeekRepository.count() == 2;
+
+        // Delete the section
+        mockMvc.perform(delete("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk());
+
+        // Active weeks must be gone too
+        assert activeWeekRepository.count() == 0 : "Expected active weeks to be deleted with the section";
+    }
+
+    @Test
+    void deleteSection_onlyDeletesActiveWeeksForThatSection() throws Exception {
+        SectionEntity sectionA = createSection("2025-2026");
+        SectionEntity sectionB = createSection("2024-2025");
+
+        ActiveWeekEntity wa = new ActiveWeekEntity();
+        wa.setSectionId(sectionA.getId());
+        wa.setWeekStartDate(LocalDate.of(2025, 9, 1));
+        activeWeekRepository.save(wa);
+
+        ActiveWeekEntity wb = new ActiveWeekEntity();
+        wb.setSectionId(sectionB.getId());
+        wb.setWeekStartDate(LocalDate.of(2024, 9, 2));
+        activeWeekRepository.save(wb);
+
+        // Delete section A only
+        mockMvc.perform(delete("/api/v1/sections/{id}", sectionA.getId()))
+                .andExpect(status().isOk());
+
+        // Section B's active week must still exist
+        assert activeWeekRepository.count() == 1 : "Section B's active week should remain";
     }
 }

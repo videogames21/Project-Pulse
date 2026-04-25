@@ -9,7 +9,8 @@ import PeerEvalView       from '../features/peer-eval/PeerEvalView.vue'
 import MyReportView       from '../features/report/MyReportView.vue'
 import SectionReportView  from '../features/instructor/SectionReportView.vue'
 import TeamWARView        from '../features/instructor/TeamWARView.vue'
-import InstructorsView    from '../features/admin/InstructorsView.vue'
+import InstructorsView       from '../features/admin/InstructorsView.vue'
+import InstructorDetailView  from '../features/admin/InstructorDetailView.vue'
 import SectionsView       from '../features/admin/SectionsView.vue'
 import SectionDetailView  from '../features/admin/SectionDetailView.vue'
 import CreateSectionView  from '../features/admin/CreateSectionView.vue'
@@ -18,7 +19,8 @@ import TeamsView          from '../features/admin/TeamsView.vue'
 import TeamDetailView     from '../features/admin/TeamDetailView.vue'
 import RubricsView        from '../features/admin/RubricsView.vue'
 import InvitationsView    from '../features/admin/InvitationsView.vue'
-import AssignStudentsView from '../features/admin/AssignStudentsView.vue'
+import AssignStudentsView      from '../features/admin/AssignStudentsView.vue'
+import ManageActiveWeeksView  from '../features/admin/ManageActiveWeeksView.vue'
 
 const routes = [
   { path: '/',                  redirect: '/login' },
@@ -37,7 +39,8 @@ const routes = [
   { path: '/team-war',          component: TeamWARView,        meta: { role: 'instructor' } },
 
   // Admin
-  { path: '/admin/instructors',     component: InstructorsView,   meta: { role: 'admin' } },
+  { path: '/admin/instructors',         component: InstructorsView,      meta: { role: 'admin' } },
+  { path: '/admin/instructors/:id',     component: InstructorDetailView, meta: { role: 'admin' } },
   { path: '/admin/sections',        component: SectionsView,      meta: { role: 'admin' } },
   { path: '/admin/sections/create',  component: CreateSectionView, meta: { role: 'admin' } },
   { path: '/admin/sections/:id/edit', component: EditSectionView,  meta: { role: 'admin' } },
@@ -46,7 +49,8 @@ const routes = [
   { path: '/admin/teams/:id',   component: TeamDetailView,    meta: { role: 'admin' } },
   { path: '/admin/rubrics',     component: RubricsView,       meta: { role: 'admin' } },
   { path: '/admin/invitations',      component: InvitationsView,    meta: { role: 'admin' } },
-  { path: '/admin/assign-students', component: AssignStudentsView, meta: { role: 'admin' } },
+  { path: '/admin/assign-students',           component: AssignStudentsView,     meta: { role: 'admin' } },
+  { path: '/admin/sections/:id/active-weeks', component: ManageActiveWeeksView,  meta: { role: 'admin' } },
 ]
 
 const router = createRouter({

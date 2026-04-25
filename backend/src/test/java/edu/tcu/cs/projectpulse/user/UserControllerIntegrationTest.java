@@ -51,21 +51,21 @@ class UserControllerIntegrationTest {
 
         // Re-seed base users
         UserEntity admin = new UserEntity();
-        admin.setName("Admin User"); admin.setEmail("admin@tcu.edu");
+        admin.setFirstName("Admin"); admin.setLastName("User"); admin.setEmail("admin@tcu.edu");
         admin.setRole(UserRole.ADMIN);
         admin.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
         admin.setEnabled(true);
         userRepository.save(admin);
 
         UserEntity instructor = new UserEntity();
-        instructor.setName("Dr. Johnson"); instructor.setEmail("johnson@tcu.edu");
+        instructor.setFirstName("Dr."); instructor.setLastName("Johnson"); instructor.setEmail("johnson@tcu.edu");
         instructor.setRole(UserRole.INSTRUCTOR);
         instructor.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
         instructor.setEnabled(true);
         instructor = userRepository.save(instructor);
 
         UserEntity alice = new UserEntity();
-        alice.setName("Alice Chen"); alice.setEmail("alice@tcu.edu");
+        alice.setFirstName("Alice"); alice.setLastName("Chen"); alice.setEmail("alice@tcu.edu");
         alice.setRole(UserRole.STUDENT);
         alice.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
         alice.setEnabled(true);
@@ -128,6 +128,15 @@ class UserControllerIntegrationTest {
                 .findFirst().orElseThrow().getId();
     }
 
+    private UserEntity createUser(String firstName, String lastName, String email, UserRole role) {
+        UserEntity u = new UserEntity();
+        u.setFirstName(firstName);
+        u.setLastName(lastName);
+        u.setEmail(email);
+        u.setRole(role);
+        return userRepository.save(u);
+    }
+
     // ── GET /api/v1/users/me ─────────────────────────────────────────────────
 
     @Test
@@ -137,7 +146,8 @@ class UserControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.email").value("alice@tcu.edu"))
-                .andExpect(jsonPath("$.data.name").value("Alice Chen"))
+                .andExpect(jsonPath("$.data.firstName").value("Alice"))
+                .andExpect(jsonPath("$.data.lastName").value("Chen"))
                 .andExpect(jsonPath("$.data.role").value("STUDENT"));
     }
 
@@ -472,13 +482,19 @@ class UserControllerIntegrationTest {
     }
 
     @Test
+    void findInstructors_returnsOnlyInstructors() throws Exception {
+        createUser("Extra", "Prof", "extra-prof@example.com", UserRole.INSTRUCTOR);
+        createUser("Extra", "Student", "extra-stu@example.com", UserRole.STUDENT);
+
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(2)));
+    }
+
+    @Test
     void findInstructors_multipleInstructors_returnsAll() throws Exception {
-        UserEntity extra = new UserEntity();
-        extra.setName("Dr. Smith"); extra.setEmail("smith@example.com");
-        extra.setRole(UserRole.INSTRUCTOR);
-        extra.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
-        extra.setEnabled(true);
-        userRepository.save(extra);
+        createUser("Dr.", "Smith", "smith@example.com", UserRole.INSTRUCTOR);
 
         mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR")
                         .header("Authorization", jwtHelper.adminToken()))
@@ -488,19 +504,8 @@ class UserControllerIntegrationTest {
 
     @Test
     void findInstructors_nameFilter_returnsMatchingInstructors() throws Exception {
-        UserEntity u1 = new UserEntity();
-        u1.setName("Alice Smith"); u1.setEmail("alice-smith@example.com");
-        u1.setRole(UserRole.INSTRUCTOR);
-        u1.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
-        u1.setEnabled(true);
-        userRepository.save(u1);
-
-        UserEntity u2 = new UserEntity();
-        u2.setName("Alice Teacher"); u2.setEmail("alice-teacher@example.com");
-        u2.setRole(UserRole.INSTRUCTOR);
-        u2.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
-        u2.setEnabled(true);
-        userRepository.save(u2);
+        createUser("Alice", "Smith", "alice-smith@example.com", UserRole.INSTRUCTOR);
+        createUser("Alice", "Teacher", "alice-teacher@example.com", UserRole.INSTRUCTOR);
 
         mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("name", "Alice")
                         .header("Authorization", jwtHelper.adminToken()))
@@ -518,6 +523,15 @@ class UserControllerIntegrationTest {
     }
 
     @Test
+    void findInstructors_nameFilter_matchesLastName() throws Exception {
+        mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("name", "Johnson")
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].lastName").value("Johnson"));
+    }
+
+    @Test
     void findInstructors_nameFilter_noMatch_returnsEmpty() throws Exception {
         mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("name", "Zzzz")
                         .header("Authorization", jwtHelper.adminToken()))
@@ -527,19 +541,8 @@ class UserControllerIntegrationTest {
 
     @Test
     void findInstructors_nameFilter_doesNotReturnStudentsWithSameName() throws Exception {
-        UserEntity inst = new UserEntity();
-        inst.setName("Alice Smith"); inst.setEmail("alice-inst@example.com");
-        inst.setRole(UserRole.INSTRUCTOR);
-        inst.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
-        inst.setEnabled(true);
-        userRepository.save(inst);
-
-        UserEntity stu = new UserEntity();
-        stu.setName("Alice Smith"); stu.setEmail("alice-stu@example.com");
-        stu.setRole(UserRole.STUDENT);
-        stu.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
-        stu.setEnabled(true);
-        userRepository.save(stu);
+        createUser("Alice", "Smith", "alice-inst@example.com", UserRole.INSTRUCTOR);
+        createUser("Alice", "Smith", "alice-stu@example.com", UserRole.STUDENT);
 
         mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR").param("name", "Alice")
                         .header("Authorization", jwtHelper.adminToken()))
@@ -551,7 +554,7 @@ class UserControllerIntegrationTest {
     // ── GET /api/v1/users/{id} ────────────────────────────────────────────────
 
     @Test
-    void findById_existingUser_returns200WithCorrectData() throws Exception {
+    void findById_existingStudent_returns200WithCorrectData() throws Exception {
         Long aliceId = userRepository.findByEmail("alice@tcu.edu").orElseThrow().getId();
 
         mockMvc.perform(get("/api/v1/users/" + aliceId)
@@ -559,7 +562,8 @@ class UserControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.email").value("alice@tcu.edu"))
-                .andExpect(jsonPath("$.data.name").value("Alice Chen"))
+                .andExpect(jsonPath("$.data.firstName").value("Alice"))
+                .andExpect(jsonPath("$.data.lastName").value("Chen"))
                 .andExpect(jsonPath("$.data.role").value("STUDENT"));
     }
 
@@ -594,5 +598,80 @@ class UserControllerIntegrationTest {
     void findById_withoutJwt_returns403() throws Exception {
         mockMvc.perform(get("/api/v1/users/1"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void findById_instructor_returnsInstructorDetail() throws Exception {
+        UserEntity u = createUser("Alice", "Prof", "alice-prof@example.com", UserRole.INSTRUCTOR);
+
+        mockMvc.perform(get("/api/v1/users/" + u.getId())
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.firstName").value("Alice"))
+                .andExpect(jsonPath("$.data.lastName").value("Prof"))
+                .andExpect(jsonPath("$.data.email").value("alice-prof@example.com"))
+                .andExpect(jsonPath("$.data.role").value("INSTRUCTOR"))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.supervisedTeam").isEmpty());
+    }
+
+    @Test
+    void findById_instructor_defaultStatusIsActive() throws Exception {
+        UserEntity u = createUser("Bob", "Jones", "bob-jones@example.com", UserRole.INSTRUCTOR);
+
+        mockMvc.perform(get("/api/v1/users/" + u.getId())
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+    }
+
+    @Test
+    void findById_deactivatedInstructor_returnsDeactivatedStatus() throws Exception {
+        UserEntity u = new UserEntity();
+        u.setFirstName("Carol");
+        u.setLastName("Jones");
+        u.setEmail("carol-jones@example.com");
+        u.setRole(UserRole.INSTRUCTOR);
+        u.setStatus(UserStatus.DEACTIVATED);
+        userRepository.save(u);
+
+        mockMvc.perform(get("/api/v1/users/" + u.getId())
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("DEACTIVATED"));
+    }
+
+    @Test
+    void findById_instructorAssignedToTeam_returnsSupervisedTeam() throws Exception {
+        TeamEntity team = new TeamEntity();
+        team.setName("New Team");
+        team.setSectionName("CS4910");
+        team = teamRepository.save(team);
+
+        UserEntity u = new UserEntity();
+        u.setFirstName("Dave");
+        u.setLastName("Smith");
+        u.setEmail("dave-smith@example.com");
+        u.setRole(UserRole.INSTRUCTOR);
+        u.setTeamId(team.getId());
+        userRepository.save(u);
+
+        mockMvc.perform(get("/api/v1/users/" + u.getId())
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.supervisedTeam.teamId").isNumber())
+                .andExpect(jsonPath("$.data.supervisedTeam.teamName").value("New Team"))
+                .andExpect(jsonPath("$.data.supervisedTeam.sectionName").value("CS4910"));
+    }
+
+    @Test
+    void findById_instructorNotAssigned_supervisedTeamIsNull() throws Exception {
+        UserEntity u = createUser("Eve", "Brown", "eve-brown@example.com", UserRole.INSTRUCTOR);
+
+        mockMvc.perform(get("/api/v1/users/" + u.getId())
+                        .header("Authorization", jwtHelper.adminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.supervisedTeam").doesNotExist());
     }
 }

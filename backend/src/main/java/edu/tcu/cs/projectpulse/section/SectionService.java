@@ -1,5 +1,6 @@
 package edu.tcu.cs.projectpulse.section;
 
+import edu.tcu.cs.projectpulse.activeweek.ActiveWeekRepository;
 import edu.tcu.cs.projectpulse.rubric.CriterionEntity;
 import edu.tcu.cs.projectpulse.rubric.RubricEntity;
 import edu.tcu.cs.projectpulse.rubric.RubricNotFoundException;
@@ -27,13 +28,16 @@ public class SectionService {
     private final TeamRepository teamRepository;
     private final UserRepository userRepository;
     private final RubricRepository rubricRepository;
+    private final ActiveWeekRepository activeWeekRepository;
 
     public SectionService(SectionRepository sectionRepository, TeamRepository teamRepository,
-                          UserRepository userRepository, RubricRepository rubricRepository) {
+                          UserRepository userRepository, RubricRepository rubricRepository,
+                          ActiveWeekRepository activeWeekRepository) {
         this.sectionRepository = sectionRepository;
         this.teamRepository = teamRepository;
         this.userRepository = userRepository;
         this.rubricRepository = rubricRepository;
+        this.activeWeekRepository = activeWeekRepository;
     }
 
     @Transactional
@@ -152,6 +156,7 @@ public class SectionService {
         }
 
         sectionRepository.save(section);
+        activeWeekRepository.deleteOutOfRange(id, request.startDate(), request.endDate());
         return findSectionById(id);
     }
 
@@ -166,12 +171,12 @@ public class SectionService {
                     List<UserEntity> members = userRepository.findByTeamId(t.getId());
                     List<String> students = members.stream()
                             .filter(u -> u.getRole() == UserRole.STUDENT)
-                            .map(UserEntity::getName)
+                            .map(u -> u.getFirstName() + " " + u.getLastName())
                             .sorted()
                             .toList();
                     List<String> instructors = members.stream()
                             .filter(u -> u.getRole() == UserRole.INSTRUCTOR)
-                            .map(UserEntity::getName)
+                            .map(u -> u.getFirstName() + " " + u.getLastName())
                             .sorted()
                             .toList();
                     return new SectionDetailResponse.TeamSummary(t.getId(), t.getName(), students, instructors);
@@ -181,14 +186,14 @@ public class SectionService {
         List<String> studentsNotOnTeam = userRepository
                 .findByRoleAndTeamIdIsNull(UserRole.STUDENT)
                 .stream()
-                .map(UserEntity::getName)
+                .map(u -> u.getFirstName() + " " + u.getLastName())
                 .sorted()
                 .toList();
 
         List<String> instructorsNotOnTeam = userRepository
                 .findByRoleAndTeamIdIsNull(UserRole.INSTRUCTOR)
                 .stream()
-                .map(UserEntity::getName)
+                .map(u -> u.getFirstName() + " " + u.getLastName())
                 .sorted()
                 .toList();
 
@@ -210,5 +215,13 @@ public class SectionService {
                 section.getRubricId(),
                 rubricName
         );
+    }
+
+    @Transactional
+    public void delete(Long id) {
+        SectionEntity section = sectionRepository.findById(id)
+                .orElseThrow(() -> new SectionNotFoundException(id));
+        activeWeekRepository.deleteBySectionId(id);
+        sectionRepository.delete(section);
     }
 }

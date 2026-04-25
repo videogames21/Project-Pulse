@@ -11,6 +11,7 @@ public class InvitationResponse {
     private String status;
     private String createdAt;
     private String invitedBy;
+    private String email;
     private int usageCount;
     private List<AcceptedUserInfo> acceptedUsers;
 
@@ -34,6 +35,9 @@ public class InvitationResponse {
 
     public String getInvitedBy() { return invitedBy; }
     public void setInvitedBy(String invitedBy) { this.invitedBy = invitedBy; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 
     public int getUsageCount() { return usageCount; }
     public void setUsageCount(int usageCount) { this.usageCount = usageCount; }

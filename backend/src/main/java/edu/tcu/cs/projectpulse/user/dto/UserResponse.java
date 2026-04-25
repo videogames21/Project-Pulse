@@ -2,8 +2,11 @@ package edu.tcu.cs.projectpulse.user.dto;
 
 public record UserResponse(
         Long id,
-        String name,
+        String firstName,
+        String lastName,
         String email,
         String role,
-        Long teamId
+        String status,
+        Long teamId,
+        String teamName
 ) {}

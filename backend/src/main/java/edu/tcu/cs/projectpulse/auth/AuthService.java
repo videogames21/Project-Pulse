@@ -48,7 +48,8 @@ public class AuthService {
         }
 
         UserEntity user = new UserEntity();
-        user.setName(req.firstName() + " " + req.lastName());
+        user.setFirstName(req.firstName());
+        user.setLastName(req.lastName());
         user.setEmail(req.email());
         user.setRole(UserRole.STUDENT);
         user.setPassword(passwordEncoder.encode(req.password()));

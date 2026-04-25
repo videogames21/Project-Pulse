@@ -6,13 +6,13 @@ INSERT INTO teams (name, description, website_url, section_name) VALUES ('Team B
 INSERT INTO teams (name, description, website_url, section_name) VALUES ('Team Gamma', 'AI-powered scheduling tool', null, 'CS4911');
 
 -- BCrypt hash for "password" (10 rounds) — dev placeholder only, never use in production
-INSERT INTO users (name, email, role, team_id, password, enabled) VALUES ('Admin User',   'admin@tcu.edu',    'ADMIN',      null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
-INSERT INTO users (name, email, role, team_id, password, enabled) VALUES ('Dr. Johnson',  'johnson@tcu.edu',  'INSTRUCTOR', null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
-INSERT INTO users (name, email, role, team_id, password, enabled) VALUES ('Alice Chen',   'alice@tcu.edu',    'STUDENT',    null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
-INSERT INTO users (name, email, role, team_id, password, enabled) VALUES ('Bob Smith',    'bob@tcu.edu',      'STUDENT',    null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
-INSERT INTO users (name, email, role, team_id, password, enabled) VALUES ('Carol White',  'carol@tcu.edu',    'STUDENT',    null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
-INSERT INTO users (name, email, role, team_id, password, enabled) VALUES ('Dave Brown',   'dave@tcu.edu',     'STUDENT',    null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
-INSERT INTO users (name, email, role, team_id, password, enabled) VALUES ('Eve Davis',    'eve@tcu.edu',      'STUDENT',    null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
-INSERT INTO users (name, email, role, team_id, password, enabled) VALUES ('Frank Lee',    'frank@tcu.edu',    'STUDENT',    null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
-INSERT INTO users (name, email, role, team_id, password, enabled) VALUES ('Grace Kim',    'grace@tcu.edu',    'STUDENT',    null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
-INSERT INTO users (name, email, role, team_id, password, enabled) VALUES ('Hank Jones',   'hank@tcu.edu',     'STUDENT',    null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
+INSERT INTO users (first_name, last_name, email, role, status, team_id, password, enabled) VALUES ('Admin',  'User',    'admin@tcu.edu',    'ADMIN',      'ACTIVE', null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
+INSERT INTO users (first_name, last_name, email, role, status, team_id, password, enabled) VALUES ('Dr.',    'Johnson', 'johnson@tcu.edu',  'INSTRUCTOR', 'ACTIVE', null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
+INSERT INTO users (first_name, last_name, email, role, status, team_id, password, enabled) VALUES ('Alice',  'Chen',    'alice@tcu.edu',    'STUDENT',    'ACTIVE', null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
+INSERT INTO users (first_name, last_name, email, role, status, team_id, password, enabled) VALUES ('Bob',    'Smith',   'bob@tcu.edu',      'STUDENT',    'ACTIVE', null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
+INSERT INTO users (first_name, last_name, email, role, status, team_id, password, enabled) VALUES ('Carol',  'White',   'carol@tcu.edu',    'STUDENT',    'ACTIVE', null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
+INSERT INTO users (first_name, last_name, email, role, status, team_id, password, enabled) VALUES ('Dave',   'Brown',   'dave@tcu.edu',     'STUDENT',    'ACTIVE', null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
+INSERT INTO users (first_name, last_name, email, role, status, team_id, password, enabled) VALUES ('Eve',    'Davis',   'eve@tcu.edu',      'STUDENT',    'ACTIVE', null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
+INSERT INTO users (first_name, last_name, email, role, status, team_id, password, enabled) VALUES ('Frank',  'Lee',     'frank@tcu.edu',    'STUDENT',    'ACTIVE', null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
+INSERT INTO users (first_name, last_name, email, role, status, team_id, password, enabled) VALUES ('Grace',  'Kim',     'grace@tcu.edu',    'STUDENT',    'ACTIVE', null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);
+INSERT INTO users (first_name, last_name, email, role, status, team_id, password, enabled) VALUES ('Hank',   'Jones',   'hank@tcu.edu',     'STUDENT',    'ACTIVE', null, '$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2', true);

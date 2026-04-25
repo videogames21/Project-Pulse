@@ -43,21 +43,21 @@ class TeamControllerIntegrationTest {
         userRepository.deleteAll();
 
         UserEntity admin = new UserEntity();
-        admin.setName("Admin User"); admin.setEmail("admin@tcu.edu");
+        admin.setFirstName("Admin"); admin.setLastName("User"); admin.setEmail("admin@tcu.edu");
         admin.setRole(UserRole.ADMIN);
         admin.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
         admin.setEnabled(true);
         userRepository.save(admin);
 
         UserEntity instructor = new UserEntity();
-        instructor.setName("Dr. Johnson"); instructor.setEmail("johnson@tcu.edu");
+        instructor.setFirstName("Dr."); instructor.setLastName("Johnson"); instructor.setEmail("johnson@tcu.edu");
         instructor.setRole(UserRole.INSTRUCTOR);
         instructor.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
         instructor.setEnabled(true);
         userRepository.save(instructor);
 
         UserEntity alice = new UserEntity();
-        alice.setName("Alice Chen"); alice.setEmail("alice@tcu.edu");
+        alice.setFirstName("Alice"); alice.setLastName("Chen"); alice.setEmail("alice@tcu.edu");
         alice.setRole(UserRole.STUDENT);
         alice.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
         alice.setEnabled(true);
@@ -79,7 +79,8 @@ class TeamControllerIntegrationTest {
 
     private Long createStudent() {
         UserEntity u = new UserEntity();
-        u.setName("Test Student");
+        u.setFirstName("Test");
+        u.setLastName("Student");
         u.setEmail("student@tcu.edu");
         u.setRole(UserRole.STUDENT);
         u.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");

@@ -48,17 +48,19 @@ class TeamInstructorAssignmentIntegrationTest {
         return objectMapper.readTree(res).path("data").path("id").longValue();
     }
 
-    private Long createInstructor(String name, String email) {
+    private Long createInstructor(String firstName, String lastName, String email) {
         UserEntity u = new UserEntity();
-        u.setName(name);
+        u.setFirstName(firstName);
+        u.setLastName(lastName);
         u.setEmail(email);
         u.setRole(UserRole.INSTRUCTOR);
         return userRepository.save(u).getId();
     }
 
-    private Long createStudent(String name, String email) {
+    private Long createStudent(String firstName, String lastName, String email) {
         UserEntity u = new UserEntity();
-        u.setName(name);
+        u.setFirstName(firstName);
+        u.setLastName(lastName);
         u.setEmail(email);
         u.setRole(UserRole.STUDENT);
         return userRepository.save(u).getId();
@@ -69,7 +71,7 @@ class TeamInstructorAssignmentIntegrationTest {
     @Test
     void assignInstructor_validRequest_returns200() throws Exception {
         Long teamId       = createTeam("Team Alpha");
-        Long instructorId = createInstructor("Dr. Smith", "smith@tcu.edu");
+        Long instructorId = createInstructor("Dr.", "Smith", "smith@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/{id}/instructors", teamId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -81,7 +83,7 @@ class TeamInstructorAssignmentIntegrationTest {
     @Test
     void assignInstructor_instructorAppearsInTeamResponse() throws Exception {
         Long teamId       = createTeam("Team Alpha");
-        Long instructorId = createInstructor("Dr. Smith", "smith@tcu.edu");
+        Long instructorId = createInstructor("Dr.", "Smith", "smith@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/{id}/instructors", teamId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -92,13 +94,13 @@ class TeamInstructorAssignmentIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.instructors", hasSize(1)))
                 .andExpect(jsonPath("$.data.instructors[0].id").value(instructorId))
-                .andExpect(jsonPath("$.data.instructors[0].name").value("Dr. Smith"))
+                .andExpect(jsonPath("$.data.instructors[0].firstName").value("Dr."))
                 .andExpect(jsonPath("$.data.instructors[0].role").value("INSTRUCTOR"));
     }
 
     @Test
     void assignInstructor_teamNotFound_returns404() throws Exception {
-        Long instructorId = createInstructor("Dr. Smith", "smith@tcu.edu");
+        Long instructorId = createInstructor("Dr.", "Smith", "smith@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/{id}/instructors", 9999L)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -121,7 +123,7 @@ class TeamInstructorAssignmentIntegrationTest {
     @Test
     void assignInstructor_userIsStudent_returns400() throws Exception {
         Long teamId    = createTeam("Team Alpha");
-        Long studentId = createStudent("Alice", "alice@tcu.edu");
+        Long studentId = createStudent("Alice", "Chen", "alice@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/{id}/instructors", teamId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -134,7 +136,7 @@ class TeamInstructorAssignmentIntegrationTest {
     void assignInstructor_alreadyAssigned_returns409() throws Exception {
         Long teamId       = createTeam("Team Alpha");
         Long team2Id      = createTeam("Team Beta");
-        Long instructorId = createInstructor("Dr. Smith", "smith@tcu.edu");
+        Long instructorId = createInstructor("Dr.", "Smith", "smith@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/{id}/instructors", teamId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -162,8 +164,8 @@ class TeamInstructorAssignmentIntegrationTest {
     @Test
     void assignInstructor_multipleInstructors_allAppearInResponse() throws Exception {
         Long teamId  = createTeam("Team Alpha");
-        Long inst1Id = createInstructor("Dr. Smith",  "smith@tcu.edu");
-        Long inst2Id = createInstructor("Dr. Jones",  "jones@tcu.edu");
+        Long inst1Id = createInstructor("Dr.", "Smith", "smith@tcu.edu");
+        Long inst2Id = createInstructor("Dr.", "Jones", "jones@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/{id}/instructors", teamId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -195,7 +197,7 @@ class TeamInstructorAssignmentIntegrationTest {
     @Test
     void removeInstructor_validRequest_returns200() throws Exception {
         Long teamId       = createTeam("Team Alpha");
-        Long instructorId = createInstructor("Dr. Smith", "smith@tcu.edu");
+        Long instructorId = createInstructor("Dr.", "Smith", "smith@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/{id}/instructors", teamId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -210,7 +212,7 @@ class TeamInstructorAssignmentIntegrationTest {
     @Test
     void removeInstructor_instructorNoLongerInTeamResponse() throws Exception {
         Long teamId       = createTeam("Team Alpha");
-        Long instructorId = createInstructor("Dr. Smith", "smith@tcu.edu");
+        Long instructorId = createInstructor("Dr.", "Smith", "smith@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/{id}/instructors", teamId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -229,7 +231,7 @@ class TeamInstructorAssignmentIntegrationTest {
     void removeInstructor_instructorBecomesAvailableForOtherTeam() throws Exception {
         Long teamId       = createTeam("Team Alpha");
         Long team2Id      = createTeam("Team Beta");
-        Long instructorId = createInstructor("Dr. Smith", "smith@tcu.edu");
+        Long instructorId = createInstructor("Dr.", "Smith", "smith@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/{id}/instructors", teamId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -247,7 +249,7 @@ class TeamInstructorAssignmentIntegrationTest {
 
     @Test
     void removeInstructor_teamNotFound_returns404() throws Exception {
-        Long instructorId = createInstructor("Dr. Smith", "smith@tcu.edu");
+        Long instructorId = createInstructor("Dr.", "Smith", "smith@tcu.edu");
 
         mockMvc.perform(delete("/api/v1/teams/{id}/instructors/{iid}", 9999L, instructorId))
                 .andExpect(status().isNotFound())
@@ -267,7 +269,7 @@ class TeamInstructorAssignmentIntegrationTest {
     void removeInstructor_notAssignedToThisTeam_returns409() throws Exception {
         Long teamId  = createTeam("Team Alpha");
         Long team2Id = createTeam("Team Beta");
-        Long instructorId = createInstructor("Dr. Smith", "smith@tcu.edu");
+        Long instructorId = createInstructor("Dr.", "Smith", "smith@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/{id}/instructors", team2Id)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -282,8 +284,8 @@ class TeamInstructorAssignmentIntegrationTest {
     @Test
     void assignInstructor_studentsNotAffected() throws Exception {
         Long teamId       = createTeam("Team Alpha");
-        Long studentId    = createStudent("Alice", "alice@tcu.edu");
-        Long instructorId = createInstructor("Dr. Smith", "smith@tcu.edu");
+        Long studentId    = createStudent("Alice", "Chen", "alice@tcu.edu");
+        Long instructorId = createInstructor("Dr.", "Smith", "smith@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/{id}/students", teamId)
                         .contentType(MediaType.APPLICATION_JSON)

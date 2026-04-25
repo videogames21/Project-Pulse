@@ -8,6 +8,7 @@ import edu.tcu.cs.projectpulse.section.SectionRepository;
 import edu.tcu.cs.projectpulse.team.TeamEntity;
 import edu.tcu.cs.projectpulse.team.TeamRepository;
 import edu.tcu.cs.projectpulse.user.dto.ChangePasswordRequest;
+import edu.tcu.cs.projectpulse.user.dto.InstructorDetailResponse;
 import edu.tcu.cs.projectpulse.user.dto.UpdateProfileRequest;
 import edu.tcu.cs.projectpulse.user.dto.UserProfileResponse;
 import edu.tcu.cs.projectpulse.user.dto.UserResponse;
@@ -16,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class UserService {
@@ -38,10 +40,18 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public UserResponse findById(Long id) {
-        UserEntity user = userRepository.findById(id)
+    public UserEntity findEntityById(Long id) {
+        return userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException(id));
-        return toResponse(user);
+    }
+
+    public UserResponse findById(Long id) {
+        return toResponse(findEntityById(id));
+    }
+
+    public InstructorDetailResponse findInstructorById(Long id) {
+        UserEntity user = findEntityById(id);
+        return toInstructorDetail(user);
     }
 
     public UserResponse findByEmail(String email) {
@@ -106,7 +116,15 @@ public class UserService {
             });
         }
 
-        user.setName(req.name());
+        String fullName = req.name().trim();
+        int spaceIdx = fullName.indexOf(' ');
+        if (spaceIdx > 0) {
+            user.setFirstName(fullName.substring(0, spaceIdx));
+            user.setLastName(fullName.substring(spaceIdx + 1));
+        } else {
+            user.setFirstName(fullName);
+            user.setLastName("");
+        }
         user.setEmail(req.email());
         userRepository.save(user);
 
@@ -130,7 +148,7 @@ public class UserService {
 
     public List<UserResponse> findInstructors(String name) {
         List<UserEntity> instructors = (name != null && !name.isBlank())
-                ? userRepository.findByRoleAndNameContainingIgnoreCase(UserRole.INSTRUCTOR, name)
+                ? userRepository.findByRoleAndNameContaining(UserRole.INSTRUCTOR, name)
                 : userRepository.findByRole(UserRole.INSTRUCTOR);
         return instructors.stream()
                 .map(this::toResponse)
@@ -138,12 +156,42 @@ public class UserService {
     }
 
     public UserResponse toResponse(UserEntity entity) {
+        String teamName = null;
+        if (entity.getTeamId() != null) {
+            teamName = teamRepository.findById(entity.getTeamId())
+                    .map(TeamEntity::getName)
+                    .orElse(null);
+        }
         return new UserResponse(
                 entity.getId(),
-                entity.getName(),
+                entity.getFirstName(),
+                entity.getLastName(),
                 entity.getEmail(),
                 entity.getRole().name(),
-                entity.getTeamId()
+                entity.getStatus().name(),
+                entity.getTeamId(),
+                teamName
+        );
+    }
+
+    public InstructorDetailResponse toInstructorDetail(UserEntity user) {
+        InstructorDetailResponse.SupervisedTeam supervisedTeam = null;
+        if (user.getTeamId() != null) {
+            Optional<TeamEntity> teamOpt = teamRepository.findById(user.getTeamId());
+            if (teamOpt.isPresent()) {
+                TeamEntity team = teamOpt.get();
+                supervisedTeam = new InstructorDetailResponse.SupervisedTeam(
+                        team.getId(), team.getName(), team.getSectionName());
+            }
+        }
+        return new InstructorDetailResponse(
+                user.getId(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getEmail(),
+                user.getRole().name(),
+                user.getStatus().name(),
+                supervisedTeam
         );
     }
 }
