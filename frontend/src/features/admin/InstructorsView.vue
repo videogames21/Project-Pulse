@@ -2,11 +2,20 @@
 import { ref, onMounted } from 'vue'
 import AppLayout from '../../components/AppLayout.vue'
 import { usersApi } from '../../api/users.js'
+import { invitationsApi } from '../../api/invitations.js'
 
 const instructors = ref([])
 const loading     = ref(false)
 const error       = ref('')
 const filterName  = ref('')
+
+// Invite modal
+const showInvite      = ref(false)
+const inviteEmails    = ref('')
+const inviteError     = ref('')
+const inviting        = ref(false)
+const inviteResults   = ref([])
+const showInviteLinks = ref(false)
 
 async function fetchInstructors() {
   loading.value = true
@@ -26,6 +35,32 @@ function clearFilters() {
   fetchInstructors()
 }
 
+function openInvite() {
+  inviteEmails.value    = ''
+  inviteError.value     = ''
+  inviteResults.value   = []
+  showInviteLinks.value = false
+  showInvite.value      = true
+}
+
+async function sendInvitations() {
+  inviteError.value = ''
+  if (!inviteEmails.value.trim()) {
+    inviteError.value = 'Please enter at least one email address.'
+    return
+  }
+  inviting.value = true
+  try {
+    const res = await invitationsApi.inviteInstructors(inviteEmails.value)
+    inviteResults.value   = res.data
+    showInviteLinks.value = true
+  } catch (e) {
+    inviteError.value = e.message
+  } finally {
+    inviting.value = false
+  }
+}
+
 onMounted(fetchInstructors)
 </script>
 
@@ -33,8 +68,9 @@ onMounted(fetchInstructors)
   <AppLayout>
     <div v-if="error" class="alert alert-error">{{ error }}</div>
 
-    <div class="flex justify-between items-center mb-4">
+    <div class="flex justify-between items-center mb-4" style="margin-bottom:16px">
       <p class="muted">View and manage instructors in the system.</p>
+      <button class="btn btn-primary btn-sm" @click="openInvite">+ Invite Instructors</button>
     </div>
 
     <!-- Filters -->
@@ -73,7 +109,7 @@ onMounted(fetchInstructors)
               <td><strong>{{ i.name }}</strong></td>
               <td class="muted">{{ i.email }}</td>
               <td>
-                <span v-if="i.teamId" >Team #{{ i.teamId }}</span>
+                <span v-if="i.teamId">Team #{{ i.teamId }}</span>
                 <span v-else class="muted">—</span>
               </td>
             </tr>
@@ -81,5 +117,58 @@ onMounted(fetchInstructors)
         </table>
       </div>
     </div>
+
+    <!-- Invite Modal -->
+    <div v-if="showInvite" class="overlay" @click.self="showInvite = false">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>Invite Instructors</h3>
+          <button class="modal-close" @click="showInvite = false">×</button>
+        </div>
+
+        <!-- Input step -->
+        <div v-if="!showInviteLinks" class="modal-body">
+          <div v-if="inviteError" class="alert alert-error" style="margin-bottom:12px">{{ inviteError }}</div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Email Addresses</label>
+            <textarea
+              v-model="inviteEmails"
+              class="form-input"
+              rows="4"
+              placeholder="smith@tcu.edu; jones@tcu.edu; lee@tcu.edu"
+              style="resize:vertical"
+            />
+            <p class="muted" style="font-size:.8rem;margin-top:4px">Separate multiple emails with semicolons.</p>
+          </div>
+        </div>
+
+        <!-- Results step -->
+        <div v-else class="modal-body">
+          <p style="margin-bottom:12px;color:#16a34a;font-weight:600">
+            {{ inviteResults.length }} invitation(s) sent successfully.
+          </p>
+          <p class="muted" style="font-size:.85rem;margin-bottom:10px">
+            Share these registration links with the instructors:
+          </p>
+          <div v-for="r in inviteResults" :key="r.id" style="margin-bottom:10px;padding:10px;background:var(--surface-alt, #f9fafb);border-radius:6px;border:1px solid var(--border)">
+            <p style="font-size:.85rem;font-weight:600">{{ r.email }}</p>
+            <p style="font-size:.8rem;word-break:break-all;color:var(--purple);margin-top:4px">{{ r.registrationLink }}</p>
+          </div>
+        </div>
+
+        <div class="modal-foot">
+          <button class="btn btn-secondary" @click="showInvite = false">Close</button>
+          <button
+            v-if="!showInviteLinks"
+            class="btn btn-primary"
+            :disabled="inviting"
+            @click="sendInvitations"
+          >
+            {{ inviting ? 'Sending…' : 'Send Invitations' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
   </AppLayout>
 </template>

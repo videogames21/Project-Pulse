@@ -1,5 +1,5 @@
 export const DEMO_USERS = {
-  student:    { id: 3, name: 'Alice Johnson',  email: 'alice@tcu.edu',   role: 'student',    team: 'Team Alpha', section: '2024-2025' },
+  student:    { id: 3, name: 'Alice Johnson', email: 'alice@tcu.edu',   role: 'student',    team: 'Team Alpha', section: '2024-2025' },
   instructor: { id: 2, name: 'Dr. Johnson', email: 'johnson@tcu.edu', role: 'instructor', section: '2024-2025' },
   admin:      { id: 3, name: 'Admin User',  email: 'admin@tcu.edu',   role: 'admin' },
 }
