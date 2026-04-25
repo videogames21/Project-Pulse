@@ -1,5 +1,6 @@
 package edu.tcu.cs.projectpulse.section;
 
+import edu.tcu.cs.projectpulse.TestJwtHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.tcu.cs.projectpulse.activeweek.ActiveWeekEntity;
 import edu.tcu.cs.projectpulse.activeweek.ActiveWeekRepository;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -31,16 +33,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class SectionControllerIntegrationTest {
 
-    @Autowired
-    WebApplicationContext wac;
-
-    @Autowired
-    SectionRepository sectionRepository;
-
-    @Autowired
-    TeamRepository teamRepository;
+    @Autowired WebApplicationContext wac;
+    @Autowired SectionRepository sectionRepository;
+    @Autowired TeamRepository teamRepository;
+    @Autowired TestJwtHelper jwtHelper;
 
     @Autowired
     UserRepository userRepository;
@@ -63,6 +62,14 @@ class SectionControllerIntegrationTest {
         teamRepository.deleteAll();
         sectionRepository.deleteAll();
         rubricRepository.deleteAll();
+
+        // Re-seed admin so TestJwtHelper can generate tokens (section tests create their own students/instructors)
+        UserEntity admin = new UserEntity();
+        admin.setFirstName("Admin"); admin.setLastName("User"); admin.setEmail("admin@tcu.edu");
+        admin.setRole(UserRole.ADMIN);
+        admin.setPassword("$2a$10$/rz/mTHR6tfoYIglSdFyDe7pq1tHpDFf5Wzi1jP9Qjf7km.zMynh2");
+        admin.setEnabled(true);
+        userRepository.save(admin);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -593,7 +600,8 @@ class SectionControllerIntegrationTest {
 
     @Test
     void findSections_noSections_returnsEmptyList() throws Exception {
-        mockMvc.perform(get("/api/v1/sections"))
+        mockMvc.perform(get("/api/v1/sections")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data", hasSize(0)));
@@ -605,7 +613,8 @@ class SectionControllerIntegrationTest {
         createSection("2025-2026");
         createSection("2024-2025");
 
-        mockMvc.perform(get("/api/v1/sections"))
+        mockMvc.perform(get("/api/v1/sections")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data", hasSize(3)))
@@ -622,7 +631,8 @@ class SectionControllerIntegrationTest {
         createSection("2024-2025");
         createSection("2022-2023");
 
-        mockMvc.perform(get("/api/v1/sections").param("name", "2025"))
+        mockMvc.perform(get("/api/v1/sections").param("name", "2025")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data", hasSize(2)))
@@ -633,7 +643,8 @@ class SectionControllerIntegrationTest {
     void findSections_filterByName_caseInsensitive() throws Exception {
         createSection("2025-2026");
 
-        mockMvc.perform(get("/api/v1/sections").param("name", "2025-2026"))
+        mockMvc.perform(get("/api/v1/sections").param("name", "2025-2026")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
                 .andExpect(jsonPath("$.data[0].sectionName").value("2025-2026"));
@@ -643,7 +654,8 @@ class SectionControllerIntegrationTest {
     void findSections_filterByName_noMatch_returnsEmptyList() throws Exception {
         createSection("2025-2026");
 
-        mockMvc.perform(get("/api/v1/sections").param("name", "9999"))
+        mockMvc.perform(get("/api/v1/sections").param("name", "9999")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data", hasSize(0)));
@@ -658,7 +670,8 @@ class SectionControllerIntegrationTest {
         createTeam("Team Alpha", "2025-2026");
         createTeam("Team Beta", "2025-2026");
 
-        mockMvc.perform(get("/api/v1/sections"))
+        mockMvc.perform(get("/api/v1/sections")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].sectionName").value("2025-2026"))
                 .andExpect(jsonPath("$.data[0].teamNames", hasSize(3)))
@@ -671,7 +684,8 @@ class SectionControllerIntegrationTest {
     void findSections_noTeams_returnsEmptyTeamNamesList() throws Exception {
         createSection("2025-2026");
 
-        mockMvc.perform(get("/api/v1/sections"))
+        mockMvc.perform(get("/api/v1/sections")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].sectionName").value("2025-2026"))
                 .andExpect(jsonPath("$.data[0].teamNames", hasSize(0)));
@@ -684,7 +698,8 @@ class SectionControllerIntegrationTest {
         createTeam("Team A", "2025-2026");
         createTeam("Team B", "2024-2025");
 
-        mockMvc.perform(get("/api/v1/sections").param("name", "2025-2026"))
+        mockMvc.perform(get("/api/v1/sections").param("name", "2025-2026")
+                        .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
                 .andExpect(jsonPath("$.data[0].sectionName").value("2025-2026"))

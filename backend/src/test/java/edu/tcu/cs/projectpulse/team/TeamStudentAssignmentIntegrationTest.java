@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
@@ -17,10 +19,13 @@ import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.*;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
+@WithMockUser(roles = "ADMIN")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class TeamStudentAssignmentIntegrationTest {
 
     @Autowired
@@ -38,7 +43,12 @@ class TeamStudentAssignmentIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
+        mockMvc = MockMvcBuilders.webAppContextSetup(wac)
+                .apply(springSecurity())
+                .build();
+        // Delete all users — this class uses @WithMockUser so real DB users are not needed
+        // for authentication. @DirtiesContext ensures a fresh context (with data.sql re-run)
+        // is created for subsequent test classes.
         userRepository.deleteAll();
         teamRepository.deleteAll();
     }
@@ -81,7 +91,7 @@ class TeamStudentAssignmentIntegrationTest {
     @Test
     void findStudents_withStudents_returnsAllStudents() throws Exception {
         createStudent("Alice", "Chen", "alice@tcu.edu");
-        createStudent("Bob", "Smith",  "bob@tcu.edu");
+        createStudent("Bob", "Smith", "bob@tcu.edu");
 
         mockMvc.perform(get("/api/v1/users").param("role", "STUDENT"))
                 .andExpect(status().isOk())
@@ -94,7 +104,7 @@ class TeamStudentAssignmentIntegrationTest {
     @Test
     void findUnassignedStudents_allUnassigned_returnsAll() throws Exception {
         createStudent("Alice", "Chen", "alice@tcu.edu");
-        createStudent("Bob", "Smith",  "bob@tcu.edu");
+        createStudent("Bob", "Smith", "bob@tcu.edu");
 
         mockMvc.perform(get("/api/v1/users").param("role", "STUDENT").param("unassigned", "true"))
                 .andExpect(status().isOk())
@@ -154,7 +164,7 @@ class TeamStudentAssignmentIntegrationTest {
     void assignStudents_validRequest_returns200() throws Exception {
         Long teamId  = createTeam("Team Alpha");
         Long aliceId = createStudent("Alice", "Chen", "alice@tcu.edu");
-        Long bobId   = createStudent("Bob", "Smith",  "bob@tcu.edu");
+        Long bobId   = createStudent("Bob", "Smith", "bob@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -167,7 +177,7 @@ class TeamStudentAssignmentIntegrationTest {
     void assignStudents_studentsAppearInTeamDetailResponse() throws Exception {
         Long teamId  = createTeam("Team Alpha");
         Long aliceId = createStudent("Alice", "Chen", "alice@tcu.edu");
-        Long bobId   = createStudent("Bob", "Smith",  "bob@tcu.edu");
+        Long bobId   = createStudent("Bob", "Smith", "bob@tcu.edu");
 
         assign(teamId, List.of(aliceId, bobId));
 
@@ -250,18 +260,15 @@ class TeamStudentAssignmentIntegrationTest {
         mockMvc.perform(delete("/api/v1/teams/" + teamId + "/students/" + aliceId))
                 .andExpect(status().isOk());
 
-        // Student appears in unassigned pool
         mockMvc.perform(get("/api/v1/users").param("role", "STUDENT").param("unassigned", "true"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
                 .andExpect(jsonPath("$.data[0].firstName").value("Alice"));
 
-        // Student no longer in team's member list
         mockMvc.perform(get("/api/v1/teams/" + teamId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.students", hasSize(0)));
 
-        // Student's teamId is cleared
         mockMvc.perform(get("/api/v1/users/" + aliceId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.teamId").isEmpty());
@@ -293,7 +300,6 @@ class TeamStudentAssignmentIntegrationTest {
 
         assign(teamAlphaId, List.of(aliceId));
 
-        // Remove from Team Beta, but Alice is on Team Alpha
         mockMvc.perform(delete("/api/v1/teams/" + teamBetaId + "/students/" + aliceId))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false));
@@ -330,8 +336,8 @@ class TeamStudentAssignmentIntegrationTest {
     void getTeamById_partialAssignment_onlyShowsAssignedMembers() throws Exception {
         Long teamId  = createTeam("Team Alpha");
         Long aliceId = createStudent("Alice", "Chen", "alice@tcu.edu");
-        Long bobId   = createStudent("Bob", "Smith",  "bob@tcu.edu");
-        createStudent("Carol", "White", "carol@tcu.edu"); // left unassigned
+        Long bobId   = createStudent("Bob", "Smith", "bob@tcu.edu");
+        createStudent("Carol", "White", "carol@tcu.edu");
 
         assign(teamId, List.of(aliceId, bobId));
 
@@ -347,7 +353,7 @@ class TeamStudentAssignmentIntegrationTest {
         Long teamAlphaId = createTeam("Team Alpha");
         Long teamBetaId  = createTeam("Team Beta");
         Long aliceId     = createStudent("Alice", "Chen", "alice@tcu.edu");
-        Long bobId       = createStudent("Bob", "Smith",  "bob@tcu.edu");
+        Long bobId       = createStudent("Bob", "Smith", "bob@tcu.edu");
 
         assign(teamAlphaId, List.of(aliceId));
         assign(teamBetaId,  List.of(bobId));
@@ -361,5 +367,14 @@ class TeamStudentAssignmentIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.students", hasSize(1)))
                 .andExpect(jsonPath("$.data.students[0].firstName").value("Bob"));
+    }
+
+    // ── Security enforcement ─────────────────────────────────────────────────
+
+    @Test
+    @WithMockUser(roles = "STUDENT")
+    void adminEndpoint_withStudentRole_returns403() throws Exception {
+        mockMvc.perform(post("/api/v1/invitations"))
+                .andExpect(status().isForbidden());
     }
 }

@@ -6,15 +6,25 @@ async function request(method, path, body, params) {
     url += '?' + new URLSearchParams(params).toString()
   }
 
+  const token = localStorage.getItem('token')
+  const headers = { 'Content-Type': 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
   const res = await fetch(url, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   })
 
   const json = await res.json()
 
   if (!res.ok) {
+    if (res.status === 401 && token && path !== '/api/v1/users/me/password') {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      window.location.href = '/login'
+      return
+    }
     const err = new Error(json.message ?? `${method} ${path} → ${res.status}`)
     err.status = res.status
     err.data = json

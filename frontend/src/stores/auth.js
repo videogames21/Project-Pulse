@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { DEMO_USERS } from '../data/mockData'
+import { api } from '../services/api.js'
 import { usersApi } from '../api/users.js'
 import { teamsApi } from '../api/teams.js'
 import { useNotificationsStore } from './notifications.js'
@@ -8,8 +8,39 @@ import { useNotificationsStore } from './notifications.js'
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
 
-  function login(role) {
-    user.value = { ...DEMO_USERS[role] }
+  async function login(email, password) {
+    const res = await api.post('/api/v1/auth/login', { email, password })
+    _saveSession(res.data)
+  }
+
+  async function register(payload) {
+    const res = await api.post('/api/v1/auth/register', payload)
+    _saveSession(res.data)
+  }
+
+  function logout() {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    user.value = null
+  }
+
+  function initFromStorage() {
+    const stored = localStorage.getItem('user')
+    if (stored) user.value = JSON.parse(stored)
+  }
+
+  function _saveSession(data) {
+    localStorage.setItem('token', data.token)
+    const u = { id: data.id, name: data.name, email: data.email, role: data.role.toLowerCase(), teamId: null }
+    localStorage.setItem('user', JSON.stringify(u))
+    user.value = u
+  }
+
+  function updateSession(data) {
+    localStorage.setItem('token', data.token)
+    const u = { ...user.value, id: data.id, name: data.name, email: data.email, role: data.role.toLowerCase() }
+    localStorage.setItem('user', JSON.stringify(u))
+    user.value = u
   }
 
   // Fetches live teamId + team name from the API and updates the session.
@@ -19,7 +50,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (!user.value || user.value.role !== 'student') return
     try {
       const previousTeamId = user.value.teamId ?? null
-      const userRes = await usersApi.getById(user.value.id)
+      const userRes = await usersApi.getMe()
       const { teamId } = userRes.data
 
       if (teamId) {
@@ -37,9 +68,5 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function logout() {
-    user.value = null
-  }
-
-  return { user, login, logout, refreshTeam }
+  return { user, login, register, logout, initFromStorage, refreshTeam, updateSession }
 })

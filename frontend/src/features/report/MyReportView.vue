@@ -150,3 +150,10 @@ onMounted(fetchReport)
     </template>
   </AppLayout>
 </template>
+
+<style scoped>
+.empty       { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; text-align: center; gap: 10px; }
+.empty-icon  { font-size: 2.8rem; }
+.empty-title { font-size: 1.05rem; font-weight: 700; color: #4D1979; max-width: 400px; line-height: 1.4; }
+.empty-sub   { font-size: .88rem; color: #7a7090; max-width: 380px; line-height: 1.5; }
+</style>

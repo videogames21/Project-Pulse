@@ -22,7 +22,6 @@ public class InvitationEntity {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
-    // TODO: Replace with JWT principal once auth module is built
     @Column(nullable = false)
     private String invitedBy;
 
@@ -32,6 +31,9 @@ public class InvitationEntity {
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private UserRole role;
+
+    @Column(length = 6)
+    private String accessCode;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -53,4 +55,7 @@ public class InvitationEntity {
 
     public UserRole getRole() { return role; }
     public void setRole(UserRole role) { this.role = role; }
+
+    public String getAccessCode() { return accessCode; }
+    public void setAccessCode(String accessCode) { this.accessCode = accessCode; }
 }

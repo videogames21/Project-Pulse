@@ -17,14 +17,21 @@ spring:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
       ddl-auto: create-drop
+    show-sql: false
     defer-datasource-initialization: true
 
   sql:
-  
     init:
       mode: always
 
 app:
   base-url: http://localhost:3000
-  admin-email: admin@tcu.edu
-  admin-name: Admin User
+
+# PRODUCTION REVIEW: Never commit a real secret here.
+# Override with the SECURITY_JWT_SECRET environment variable in CI/prod.
+# Generate a new secret with: openssl rand -base64 32
+# (Must be Base64-encoded — the code uses Decoders.BASE64.decode() to read it)
+security:
+  jwt:
+    secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    expiration-ms: 86400000
