@@ -89,17 +89,21 @@ class SectionControllerIntegrationTest {
         return teamRepository.save(t).getId();
     }
 
-    private Long createStudent(String name, String email) {
+    private Long createStudent(String fullName, String email) {
+        String[] parts = fullName.split(" ", 2);
         UserEntity u = new UserEntity();
-        u.setName(name);
+        u.setFirstName(parts[0]);
+        u.setLastName(parts.length > 1 ? parts[1] : "");
         u.setEmail(email);
         u.setRole(UserRole.STUDENT);
         return userRepository.save(u).getId();
     }
 
-    private Long createInstructor(String name, String email) {
+    private Long createInstructor(String fullName, String email) {
+        String[] parts = fullName.split(" ", 2);
         UserEntity u = new UserEntity();
-        u.setName(name);
+        u.setFirstName(parts[0]);
+        u.setLastName(parts.length > 1 ? parts[1] : "");
         u.setEmail(email);
         u.setRole(UserRole.INSTRUCTOR);
         return userRepository.save(u).getId();
@@ -565,7 +569,8 @@ class SectionControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/users").param("role", "INSTRUCTOR"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
-                .andExpect(jsonPath("$.data[0].name").value("Dr. Smith"));
+                .andExpect(jsonPath("$.data[0].firstName").value("Dr."))
+                .andExpect(jsonPath("$.data[0].lastName").value("Smith"));
     }
 
     @Test
@@ -580,7 +585,8 @@ class SectionControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/users"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
-                .andExpect(jsonPath("$.data[0].name").value("Test Student A"));
+                .andExpect(jsonPath("$.data[0].firstName").value("Test"))
+                .andExpect(jsonPath("$.data[0].lastName").value("Student A"));
     }
 
     // ── GET /api/v1/sections (no filter) ─────────────────────────────────────

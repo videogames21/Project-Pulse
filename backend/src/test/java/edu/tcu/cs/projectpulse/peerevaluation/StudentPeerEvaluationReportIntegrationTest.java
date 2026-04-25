@@ -52,7 +52,8 @@ class StudentPeerEvaluationReportIntegrationTest {
         teamId = teamRepository.save(team).getId();
 
         UserEntity evaluatee = new UserEntity();
-        evaluatee.setName("Test Student A");
+        evaluatee.setFirstName("Test");
+        evaluatee.setLastName("Student A");
         evaluatee.setEmail("student_a@tcu.edu");
         evaluatee.setRole(UserRole.STUDENT);
         evaluatee.setTeamId(teamId);
@@ -62,8 +63,10 @@ class StudentPeerEvaluationReportIntegrationTest {
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private Long createEvaluator(String name, String email) {
+        String[] parts = name.split(" ", 2);
         UserEntity u = new UserEntity();
-        u.setName(name);
+        u.setFirstName(parts[0]);
+        u.setLastName(parts.length > 1 ? parts[1] : "");
         u.setEmail(email);
         u.setRole(UserRole.STUDENT);
         u.setTeamId(teamId);

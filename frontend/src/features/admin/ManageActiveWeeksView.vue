@@ -73,21 +73,8 @@ onMounted(async () => {
       // No prior setup — default all weeks active
       activeSet.value = new Set(allWeeks.value)
     } else {
-      // Prior setup exists. Start with all current weeks active, then re-apply the
-      // admin's previous choices only for weeks that were in the original saved range.
-      // Weeks outside that range are new (date was expanded) and default to active.
-      const sortedSaved = [...saved].sort()
-      const firstSaved  = sortedSaved[0]
-      const lastSaved   = sortedSaved[sortedSaved.length - 1]
-
-      const active = new Set(allWeeks.value)
-      for (const w of allWeeks.value) {
-        // Week was inside the previously configured range but NOT saved → explicitly inactive
-        if (w >= firstSaved && w <= lastSaved && !saved.has(w)) {
-          active.delete(w)
-        }
-      }
-      activeSet.value = active
+      // Prior setup exists — restore exactly the saved weeks
+      activeSet.value = saved
     }
   } catch (e) {
     loadError.value = 'Failed to load section data. Please try again.'

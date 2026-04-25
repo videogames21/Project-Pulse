@@ -46,7 +46,7 @@ async function confirmAssign() {
     await teamsApi.assignStudents(selectedTeamId.value, selectedStudentIds.value)
     showConfirm.value        = false
     selectedStudentIds.value = []
-    showFlash('alert-success', `Students assigned to ${selectedTeam.value?.name}.`)
+    showFlash('alert-success', `Students assigned to ${selectedTeam.value?.name ?? 'team'}.`)
     await load()
   } catch (e) {
     showConfirm.value = false
@@ -131,11 +131,11 @@ onMounted(load)
                        padding:7px 16px 7px 28px;font-size:0.875rem;
                        background:#f9f8ff;border-bottom:1px solid var(--border)"
               >
-                <span>{{ student.name }}</span>
+                <span>{{ student.firstName }} {{ student.lastName }}</span>
                 <button
                   class="btn btn-secondary btn-sm"
                   style="font-size:0.75rem;padding:2px 8px;color:#dc2626"
-                  @click.stop="removeStudent(team.id, student.id, student.name)"
+                  @click.stop="removeStudent(team.id, student.id, `${student.firstName} ${student.lastName}`)"
                 >
                   Remove
                 </button>
@@ -180,7 +180,7 @@ onMounted(load)
               @change="toggleStudent(student.id)"
               style="width:16px;height:16px;cursor:pointer;flex-shrink:0"
             />
-            <span style="flex:1">{{ student.name }}</span>
+            <span style="flex:1">{{ student.firstName }} {{ student.lastName }}</span>
             <span class="muted" style="font-size:0.8rem">{{ student.email }}</span>
           </label>
 
@@ -217,7 +217,7 @@ onMounted(load)
         </p>
         <ul style="margin:0 0 20px 0;padding-left:20px;font-size:0.9rem">
           <li v-for="id in selectedStudentIds" :key="id">
-            {{ unassigned.find(s => s.id === id)?.name }}
+            {{ unassigned.find(s => s.id === id)?.firstName }} {{ unassigned.find(s => s.id === id)?.lastName }}
           </li>
         </ul>
         <div style="display:flex;justify-content:flex-end;gap:8px">

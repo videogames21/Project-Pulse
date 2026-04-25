@@ -33,7 +33,12 @@ public class UserController {
 
     @GetMapping("/{id}")
     public Result findById(@PathVariable Long id) {
-        UserResponse user = userService.findById(id);
-        return new Result(true, StatusCode.SUCCESS, "User retrieved successfully", user);
+        UserEntity entity = userService.findEntityById(id);
+        if (entity.getRole() == UserRole.INSTRUCTOR) {
+            return new Result(true, StatusCode.SUCCESS, "Instructor retrieved successfully",
+                    userService.toInstructorDetail(entity));
+        }
+        return new Result(true, StatusCode.SUCCESS, "User retrieved successfully",
+                userService.toResponse(entity));
     }
 }

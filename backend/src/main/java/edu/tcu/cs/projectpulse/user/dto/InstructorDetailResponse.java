@@ -1,12 +1,13 @@
 package edu.tcu.cs.projectpulse.user.dto;
 
-public record UserResponse(
+public record InstructorDetailResponse(
         Long id,
         String firstName,
         String lastName,
         String email,
         String role,
         String status,
-        Long teamId,
-        String teamName
-) {}
+        SupervisedTeam supervisedTeam
+) {
+    public record SupervisedTeam(Long teamId, String teamName, String sectionName) {}
+}

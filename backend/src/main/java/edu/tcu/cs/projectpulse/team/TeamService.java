@@ -113,7 +113,7 @@ public class TeamService {
 
         if (instructor.getTeamId() != null) {
             throw new IllegalStateException(
-                    "Instructor " + instructor.getName() + " is already assigned to a team. Remove them first.");
+                    "Instructor " + instructor.getFirstName() + " " + instructor.getLastName() + " is already assigned to a team. Remove them first.");
         }
 
         instructor.setTeamId(teamId);
@@ -131,7 +131,7 @@ public class TeamService {
 
             if (student.getTeamId() != null) {
                 throw new IllegalStateException(
-                        "Student " + student.getName() + " is already assigned to a team. Remove them first.");
+                        "Student " + student.getFirstName() + " " + student.getLastName() + " is already assigned to a team. Remove them first.");
             }
 
             student.setTeamId(team.getId());
