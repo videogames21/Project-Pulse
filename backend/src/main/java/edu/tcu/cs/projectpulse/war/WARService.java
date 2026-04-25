@@ -7,10 +7,12 @@ import edu.tcu.cs.projectpulse.user.UserEntity;
 import edu.tcu.cs.projectpulse.user.UserNotFoundException;
 import edu.tcu.cs.projectpulse.user.UserRepository;
 import edu.tcu.cs.projectpulse.user.UserRole;
+import edu.tcu.cs.projectpulse.war.dto.StudentWARRangeReportResponse;
 import edu.tcu.cs.projectpulse.war.dto.StudentWARSummary;
 import edu.tcu.cs.projectpulse.war.dto.TeamWARReportResponse;
 import edu.tcu.cs.projectpulse.war.dto.WARActivityRequest;
 import edu.tcu.cs.projectpulse.war.dto.WARActivityResponse;
+import edu.tcu.cs.projectpulse.war.dto.WeeklyWARSummary;
 import edu.tcu.cs.projectpulse.war.dto.WARResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -146,6 +148,40 @@ public class WARService {
                 .toList();
 
         return new TeamWARReportResponse(teamId, team.getName(), weekStart, students);
+    }
+
+    // ── UC-34: Student WAR range report ─────────────────────────────────────
+
+    public StudentWARRangeReportResponse getStudentRangeReport(Long studentId,
+                                                                LocalDate startWeek,
+                                                                LocalDate endWeek) {
+        validateWeekStart(startWeek);
+        validateWeekStart(endWeek);
+        if (endWeek.isBefore(startWeek)) {
+            throw new IllegalArgumentException("endWeek must not be before startWeek.");
+        }
+
+        UserEntity student = userRepository.findById(studentId)
+                .orElseThrow(() -> new UserNotFoundException(studentId));
+        if (student.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("User " + studentId + " is not a student.");
+        }
+
+        List<WAREntity> wars = warRepository
+                .findAllByStudentIdAndWeekStartBetween(studentId, startWeek, endWeek)
+                .stream()
+                .sorted(Comparator.comparing(WAREntity::getWeekStart))
+                .toList();
+
+        List<WeeklyWARSummary> weeks = wars.stream()
+                .map(war -> new WeeklyWARSummary(
+                        war.getWeekStart(),
+                        war.getActivities().stream().map(this::toActivityResponse).toList()))
+                .toList();
+
+        return new StudentWARRangeReportResponse(
+                studentId, student.getFirstName() + " " + student.getLastName(),
+                startWeek, endWeek, weeks);
     }
 
     private void validateStudentExists(Long studentId) {
