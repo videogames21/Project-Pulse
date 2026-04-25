@@ -45,4 +45,10 @@ public class SectionController {
         SectionDetailResponse section = sectionService.update(id, request);
         return new Result(true, StatusCode.SUCCESS, "Section updated successfully", section);
     }
+
+    @DeleteMapping("/{id}")
+    public Result delete(@PathVariable Long id) {
+        sectionService.delete(id);
+        return new Result(true, StatusCode.SUCCESS, "Section deleted successfully", null);
+    }
 }

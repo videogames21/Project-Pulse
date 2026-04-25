@@ -1,5 +1,6 @@
 package edu.tcu.cs.projectpulse.section;
 
+import edu.tcu.cs.projectpulse.activeweek.ActiveWeekRepository;
 import edu.tcu.cs.projectpulse.rubric.CriterionEntity;
 import edu.tcu.cs.projectpulse.rubric.RubricEntity;
 import edu.tcu.cs.projectpulse.rubric.RubricNotFoundException;
@@ -27,13 +28,16 @@ public class SectionService {
     private final TeamRepository teamRepository;
     private final UserRepository userRepository;
     private final RubricRepository rubricRepository;
+    private final ActiveWeekRepository activeWeekRepository;
 
     public SectionService(SectionRepository sectionRepository, TeamRepository teamRepository,
-                          UserRepository userRepository, RubricRepository rubricRepository) {
+                          UserRepository userRepository, RubricRepository rubricRepository,
+                          ActiveWeekRepository activeWeekRepository) {
         this.sectionRepository = sectionRepository;
         this.teamRepository = teamRepository;
         this.userRepository = userRepository;
         this.rubricRepository = rubricRepository;
+        this.activeWeekRepository = activeWeekRepository;
     }
 
     @Transactional
@@ -152,6 +156,7 @@ public class SectionService {
         }
 
         sectionRepository.save(section);
+        activeWeekRepository.deleteOutOfRange(id, request.startDate(), request.endDate());
         return findSectionById(id);
     }
 
@@ -210,5 +215,13 @@ public class SectionService {
                 section.getRubricId(),
                 rubricName
         );
+    }
+
+    @Transactional
+    public void delete(Long id) {
+        SectionEntity section = sectionRepository.findById(id)
+                .orElseThrow(() -> new SectionNotFoundException(id));
+        activeWeekRepository.deleteBySectionId(id);
+        sectionRepository.delete(section);
     }
 }

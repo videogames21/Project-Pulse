@@ -1,6 +1,8 @@
 package edu.tcu.cs.projectpulse.section;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.tcu.cs.projectpulse.activeweek.ActiveWeekEntity;
+import edu.tcu.cs.projectpulse.activeweek.ActiveWeekRepository;
 import edu.tcu.cs.projectpulse.rubric.RubricEntity;
 import edu.tcu.cs.projectpulse.rubric.RubricRepository;
 import edu.tcu.cs.projectpulse.team.TeamEntity;
@@ -46,6 +48,9 @@ class SectionControllerIntegrationTest {
     @Autowired
     RubricRepository rubricRepository;
 
+    @Autowired
+    ActiveWeekRepository activeWeekRepository;
+
     MockMvc mockMvc;
 
     ObjectMapper objectMapper = new ObjectMapper();
@@ -53,6 +58,7 @@ class SectionControllerIntegrationTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
+        activeWeekRepository.deleteAll();
         userRepository.deleteAll();
         teamRepository.deleteAll();
         sectionRepository.deleteAll();
@@ -1601,5 +1607,131 @@ class SectionControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.rubricId").doesNotExist());
+    }
+
+    // ── UC-5 + UC-6: editing dates prunes out-of-range active weeks ──────────
+
+    @Test
+    void updateSection_shortenedDateRange_prunesOutOfRangeActiveWeeks() throws Exception {
+        SectionEntity saved = createSection("2025-2026"); // 2025-08-25 to 2026-05-10
+
+        // Save weeks at both ends of the original range
+        ActiveWeekEntity early = new ActiveWeekEntity();
+        early.setSectionId(saved.getId());
+        early.setWeekStartDate(LocalDate.of(2025, 9, 1));  // will stay inside
+        activeWeekRepository.save(early);
+
+        ActiveWeekEntity late = new ActiveWeekEntity();
+        late.setSectionId(saved.getId());
+        late.setWeekStartDate(LocalDate.of(2026, 4, 27));  // will fall outside after shrink
+        activeWeekRepository.save(late);
+
+        // Shorten end date so 2026-04-27 is now out of range
+        var body = Map.of("name", "2025-2026", "startDate", "2025-08-25", "endDate", "2026-04-20");
+        mockMvc.perform(put("/api/v1/sections/{id}", saved.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk());
+
+        // Only the early week should remain
+        assert activeWeekRepository.count() == 1 : "Expected 1 active week after prune, got " + activeWeekRepository.count();
+    }
+
+    @Test
+    void updateSection_weeksStillInRange_notPruned() throws Exception {
+        SectionEntity saved = createSection("2025-2026"); // 2025-08-25 to 2026-05-10
+
+        ActiveWeekEntity w = new ActiveWeekEntity();
+        w.setSectionId(saved.getId());
+        w.setWeekStartDate(LocalDate.of(2025, 9, 1));
+        activeWeekRepository.save(w);
+
+        // Update with same date range — week stays
+        var body = Map.of("name", "2025-2026", "startDate", "2025-08-25", "endDate", "2026-05-10");
+        mockMvc.perform(put("/api/v1/sections/{id}", saved.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk());
+
+        assert activeWeekRepository.count() == 1 : "Week within range should not be pruned";
+    }
+
+    // ── DELETE /api/v1/sections/{id} (UC-6: cascade active weeks) ────────────
+
+    @Test
+    void deleteSection_exists_returns200() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        mockMvc.perform(delete("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void deleteSection_notFound_returns404() throws Exception {
+        mockMvc.perform(delete("/api/v1/sections/{id}", 9999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void deleteSection_removedFromList() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        mockMvc.perform(delete("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/sections"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(0)));
+    }
+
+    @Test
+    void deleteSection_cascadesActiveWeeks_noOrphansRemain() throws Exception {
+        SectionEntity saved = createSection("2025-2026");
+
+        // Save two active weeks for this section directly via repo
+        ActiveWeekEntity w1 = new ActiveWeekEntity();
+        w1.setSectionId(saved.getId());
+        w1.setWeekStartDate(LocalDate.of(2025, 9, 1));
+        activeWeekRepository.save(w1);
+
+        ActiveWeekEntity w2 = new ActiveWeekEntity();
+        w2.setSectionId(saved.getId());
+        w2.setWeekStartDate(LocalDate.of(2025, 9, 8));
+        activeWeekRepository.save(w2);
+
+        // Confirm weeks are there
+        assert activeWeekRepository.count() == 2;
+
+        // Delete the section
+        mockMvc.perform(delete("/api/v1/sections/{id}", saved.getId()))
+                .andExpect(status().isOk());
+
+        // Active weeks must be gone too
+        assert activeWeekRepository.count() == 0 : "Expected active weeks to be deleted with the section";
+    }
+
+    @Test
+    void deleteSection_onlyDeletesActiveWeeksForThatSection() throws Exception {
+        SectionEntity sectionA = createSection("2025-2026");
+        SectionEntity sectionB = createSection("2024-2025");
+
+        ActiveWeekEntity wa = new ActiveWeekEntity();
+        wa.setSectionId(sectionA.getId());
+        wa.setWeekStartDate(LocalDate.of(2025, 9, 1));
+        activeWeekRepository.save(wa);
+
+        ActiveWeekEntity wb = new ActiveWeekEntity();
+        wb.setSectionId(sectionB.getId());
+        wb.setWeekStartDate(LocalDate.of(2024, 9, 2));
+        activeWeekRepository.save(wb);
+
+        // Delete section A only
+        mockMvc.perform(delete("/api/v1/sections/{id}", sectionA.getId()))
+                .andExpect(status().isOk());
+
+        // Section B's active week must still exist
+        assert activeWeekRepository.count() == 1 : "Section B's active week should remain";
     }
 }
