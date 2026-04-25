@@ -1,9 +1,11 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import AppLayout from '../../components/AppLayout.vue'
 import { usersApi } from '../../api/users.js'
 import { invitationsApi } from '../../api/invitations.js'
 
+const router      = useRouter()
 const instructors = ref([])
 const loading     = ref(false)
 const error       = ref('')
@@ -95,21 +97,37 @@ onMounted(fetchInstructors)
             <tr>
               <th>Name</th>
               <th>Email</th>
+              <th>Status</th>
               <th>Assigned Team</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="3" class="empty">Loading...</td>
+              <td colspan="4" class="empty">Loading...</td>
             </tr>
             <tr v-else-if="instructors.length === 0">
-              <td colspan="3" class="empty">No instructors found.</td>
+              <td colspan="4" class="empty">No instructors found.</td>
             </tr>
-            <tr v-for="i in instructors" :key="i.id">
-              <td><strong>{{ i.name }}</strong></td>
+            <tr
+              v-for="i in instructors"
+              :key="i.id"
+              style="cursor:pointer"
+              @click="router.push(`/admin/instructors/${i.id}`)"
+            >
+              <td><strong>{{ i.firstName }} {{ i.lastName }}</strong></td>
               <td class="muted">{{ i.email }}</td>
               <td>
-                <span v-if="i.teamId">Team #{{ i.teamId }}</span>
+                <span
+                  class="badge"
+                  :style="i.status === 'ACTIVE'
+                    ? 'background:var(--green,#16a34a);color:#fff'
+                    : 'background:#6b7280;color:#fff'"
+                >
+                  {{ i.status === 'ACTIVE' ? 'Active' : 'Deactivated' }}
+                </span>
+              </td>
+              <td>
+                <span v-if="i.teamName">{{ i.teamName }}</span>
                 <span v-else class="muted">—</span>
               </td>
             </tr>

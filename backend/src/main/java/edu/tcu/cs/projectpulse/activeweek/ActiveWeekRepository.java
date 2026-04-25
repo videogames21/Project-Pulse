@@ -17,7 +17,7 @@ public interface ActiveWeekRepository extends JpaRepository<ActiveWeekEntity, Lo
 
     @Modifying
     @Query("DELETE FROM ActiveWeekEntity a WHERE a.sectionId = :sectionId " +
-           "AND (:startDate IS NOT NULL AND a.weekStartDate < :startDate " +
-           "OR :endDate IS NOT NULL AND a.weekStartDate > :endDate)")
+           "AND ((:startDate IS NOT NULL AND a.weekStartDate < :startDate) " +
+           "OR (:endDate IS NOT NULL AND a.weekStartDate > :endDate))")
     void deleteOutOfRange(Long sectionId, LocalDate startDate, LocalDate endDate);
 }

@@ -52,7 +52,8 @@ class TeamControllerIntegrationTest {
 
     private Long createStudent() {
         UserEntity u = new UserEntity();
-        u.setName("Test Student");
+        u.setFirstName("Test");
+        u.setLastName("Student");
         u.setEmail("student@tcu.edu");
         u.setRole(UserRole.STUDENT);
         return userRepository.save(u).getId();

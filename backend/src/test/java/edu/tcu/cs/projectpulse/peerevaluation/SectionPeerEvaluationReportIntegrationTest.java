@@ -61,8 +61,10 @@ class SectionPeerEvaluationReportIntegrationTest {
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private Long createStudent(String name, String email) {
+        String[] parts = name.split(" ", 2);
         UserEntity u = new UserEntity();
-        u.setName(name);
+        u.setFirstName(parts[0]);
+        u.setLastName(parts.length > 1 ? parts[1] : "");
         u.setEmail(email);
         u.setRole(UserRole.STUDENT);
         u.setTeamId(teamId);
@@ -167,7 +169,8 @@ class SectionPeerEvaluationReportIntegrationTest {
         Long otherTeamId = teamRepository.save(otherTeam).getId();
 
         UserEntity zara = new UserEntity();
-        zara.setName("Zara Young");
+        zara.setFirstName("Zara");
+        zara.setLastName("Young");
         zara.setEmail("zara@tcu.edu");
         zara.setRole(UserRole.STUDENT);
         zara.setTeamId(otherTeamId);

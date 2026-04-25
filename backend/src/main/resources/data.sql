@@ -5,14 +5,14 @@ INSERT INTO teams (name, description, website_url, section_name) VALUES ('Team A
 INSERT INTO teams (name, description, website_url, section_name) VALUES ('Team Beta', 'Mobile app for campus navigation', 'http://teambeta.com', 'CS4910');
 INSERT INTO teams (name, description, website_url, section_name) VALUES ('Team Gamma', 'AI-powered scheduling tool', null, 'CS4911');
 
-INSERT INTO users (name, email, role, team_id) VALUES ('Dr. Smith',     'smith@tcu.edu',  'INSTRUCTOR', null);
-INSERT INTO users (name, email, role, team_id) VALUES ('Dr. Jones',     'jones@tcu.edu',  'INSTRUCTOR', null);
+INSERT INTO users (first_name, last_name, email, role, status, team_id) VALUES ('Dr.',   'Smith',   'smith@tcu.edu',  'INSTRUCTOR', 'ACTIVE', null);
+INSERT INTO users (first_name, last_name, email, role, status, team_id) VALUES ('Dr.',   'Jones',   'jones@tcu.edu',  'INSTRUCTOR', 'ACTIVE', null);
 
-INSERT INTO users (name, email, role, team_id) VALUES ('Alice Johnson', 'alice@tcu.edu',  'STUDENT', null);
-INSERT INTO users (name, email, role, team_id) VALUES ('Bob Smith',     'bob@tcu.edu',    'STUDENT', null);
-INSERT INTO users (name, email, role, team_id) VALUES ('Carol White',   'carol@tcu.edu',  'STUDENT', null);
-INSERT INTO users (name, email, role, team_id) VALUES ('Dave Brown',    'dave@tcu.edu',   'STUDENT', null);
-INSERT INTO users (name, email, role, team_id) VALUES ('Eve Davis',     'eve@tcu.edu',    'STUDENT', null);
-INSERT INTO users (name, email, role, team_id) VALUES ('Frank Lee',     'frank@tcu.edu',  'STUDENT', null);
-INSERT INTO users (name, email, role, team_id) VALUES ('Grace Kim',     'grace@tcu.edu',  'STUDENT', null);
-INSERT INTO users (name, email, role, team_id) VALUES ('Hank Jones',    'hank@tcu.edu',   'STUDENT', null);
+INSERT INTO users (first_name, last_name, email, role, status, team_id) VALUES ('Alice', 'Johnson', 'alice@tcu.edu',  'STUDENT', 'ACTIVE', 1);
+INSERT INTO users (first_name, last_name, email, role, status, team_id) VALUES ('Bob',   'Smith',   'bob@tcu.edu',    'STUDENT', 'ACTIVE', 1);
+INSERT INTO users (first_name, last_name, email, role, status, team_id) VALUES ('Carol', 'White',   'carol@tcu.edu',  'STUDENT', 'ACTIVE', 1);
+INSERT INTO users (first_name, last_name, email, role, status, team_id) VALUES ('Dave',  'Brown',   'dave@tcu.edu',   'STUDENT', 'ACTIVE', 2);
+INSERT INTO users (first_name, last_name, email, role, status, team_id) VALUES ('Eve',   'Davis',   'eve@tcu.edu',    'STUDENT', 'ACTIVE', 2);
+INSERT INTO users (first_name, last_name, email, role, status, team_id) VALUES ('Frank', 'Lee',     'frank@tcu.edu',  'STUDENT', 'ACTIVE', 2);
+INSERT INTO users (first_name, last_name, email, role, status, team_id) VALUES ('Grace', 'Kim',     'grace@tcu.edu',  'STUDENT', 'ACTIVE', 3);
+INSERT INTO users (first_name, last_name, email, role, status, team_id) VALUES ('Hank',  'Jones',   'hank@tcu.edu',   'STUDENT', 'ACTIVE', 3);

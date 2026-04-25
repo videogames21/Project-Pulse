@@ -66,7 +66,7 @@ function logout() {
       </nav>
 
       <div class="sidebar-footer">
-        <div class="user-name">{{ auth.user?.name }}</div>
+        <div class="user-name">{{ auth.user?.firstName }} {{ auth.user?.lastName }}</div>
         <div class="user-role">{{ auth.user?.role }}</div>
         <button class="btn btn-sm" style="width:100%;justify-content:center;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2)" @click="logout">
           Sign Out

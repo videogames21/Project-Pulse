@@ -209,7 +209,7 @@ async function confirmDelete() {
             </thead>
             <tbody>
               <tr v-for="s in team.students" :key="s.id">
-                <td><strong>{{ s.name }}</strong></td>
+                <td><strong>{{ s.firstName }} {{ s.lastName }}</strong></td>
                 <td class="muted">{{ s.email }}</td>
               </tr>
             </tbody>
@@ -237,7 +237,7 @@ async function confirmDelete() {
             </thead>
             <tbody>
               <tr v-for="i in team.instructors" :key="i.id">
-                <td><strong>{{ i.name }}</strong></td>
+                <td><strong>{{ i.firstName }} {{ i.lastName }}</strong></td>
                 <td class="muted">{{ i.email }}</td>
                 <td>
                   <button class="btn btn-secondary btn-sm" style="color:#dc2626" @click="openRemoveInstructor(i)">Remove</button>
@@ -360,7 +360,7 @@ async function confirmDelete() {
           <div v-if="removeInstructorError" class="alert alert-error" style="margin-bottom:12px">
             {{ removeInstructorError }}
           </div>
-          <p>Remove <strong>{{ instructorToRemove?.name }}</strong> from <strong>{{ team?.name }}</strong>?</p>
+          <p>Remove <strong>{{ instructorToRemove?.firstName }} {{ instructorToRemove?.lastName }}</strong> from <strong>{{ team?.name }}</strong>?</p>
           <p class="muted" style="margin-top:8px;font-size:.875rem">They will be returned to the unassigned pool.</p>
         </div>
         <div class="modal-foot">
@@ -391,7 +391,7 @@ async function confirmDelete() {
             <select v-model="selectedInstructorId" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text)">
               <option :value="null" disabled>— Choose an instructor —</option>
               <option v-for="i in availableInstructors" :key="i.id" :value="i.id">
-                {{ i.name }} ({{ i.email }})
+                {{ i.firstName }} {{ i.lastName }} ({{ i.email }})
               </option>
             </select>
           </div>

@@ -261,6 +261,54 @@ class ActiveWeekControllerIntegrationTest {
                 .andExpect(jsonPath("$.success").value(false));
     }
 
+    // ── deleteOutOfRange isolation (regression for OR-precedence bug) ──────────
+
+    @Test
+    void updateSectionDateRange_prunesOnlyTargetSectionWeeks() throws Exception {
+        // Section A: will have its end date shortened
+        SectionEntity sectionA = createSection("2025-2026",
+                LocalDate.of(2025, 8, 25), LocalDate.of(2026, 5, 10));
+        // Section B: should not be touched by section A's update
+        SectionEntity sectionB = createSection("2024-2025",
+                LocalDate.of(2024, 8, 26), LocalDate.of(2026, 12, 31));
+
+        // Give section A a week that will fall outside after its end is shortened
+        var bodyA = Map.of("activeWeekDates", List.of("2026-01-05")); // 2026-01-05 is a Monday
+        mockMvc.perform(put("/api/v1/sections/{id}/active-weeks", sectionA.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(bodyA)))
+                .andExpect(status().isOk());
+
+        // Give section B a week on the same date — this must survive section A's update
+        var bodyB = Map.of("activeWeekDates", List.of("2026-01-05"));
+        mockMvc.perform(put("/api/v1/sections/{id}/active-weeks", sectionB.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(bodyB)))
+                .andExpect(status().isOk());
+
+        // Shorten section A's end date so 2026-01-05 is now out of range
+        var sectionUpdate = Map.of(
+                "name",      sectionA.getName(),
+                "startDate", "2025-08-25",
+                "endDate",   "2025-12-31"
+        );
+        mockMvc.perform(put("/api/v1/sections/{id}", sectionA.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(sectionUpdate)))
+                .andExpect(status().isOk());
+
+        // Section A's week should be pruned
+        mockMvc.perform(get("/api/v1/sections/{id}/active-weeks", sectionA.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.activeWeeks", hasSize(0)));
+
+        // Section B's week must be untouched
+        mockMvc.perform(get("/api/v1/sections/{id}/active-weeks", sectionB.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.activeWeeks", hasSize(1)))
+                .andExpect(jsonPath("$.data.activeWeeks[0]").value("2026-01-05"));
+    }
+
     @Test
     void getActiveWeeks_weeksIsolatedBetweenSections() throws Exception {
         SectionEntity sectionA = createSection("2025-2026",

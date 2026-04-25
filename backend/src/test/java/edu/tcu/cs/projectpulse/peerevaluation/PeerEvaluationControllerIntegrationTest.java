@@ -57,14 +57,16 @@ class PeerEvaluationControllerIntegrationTest {
         teamId = teamRepository.save(team).getId();
 
         UserEntity evaluator = new UserEntity();
-        evaluator.setName("Test Student A");
+        evaluator.setFirstName("Test");
+        evaluator.setLastName("Student A");
         evaluator.setEmail("alice@tcu.edu");
         evaluator.setRole(UserRole.STUDENT);
         evaluator.setTeamId(teamId);
         evaluatorId = userRepository.save(evaluator).getId();
 
         UserEntity evaluatee = new UserEntity();
-        evaluatee.setName("Bob Smith");
+        evaluatee.setFirstName("Bob");
+        evaluatee.setLastName("Smith");
         evaluatee.setEmail("bob@tcu.edu");
         evaluatee.setRole(UserRole.STUDENT);
         evaluatee.setTeamId(teamId);
@@ -174,7 +176,8 @@ class PeerEvaluationControllerIntegrationTest {
     @Test
     void submit_evaluatorNotOnTeam_returns409() throws Exception {
         UserEntity unassigned = new UserEntity();
-        unassigned.setName("Carol White");
+        unassigned.setFirstName("Carol");
+        unassigned.setLastName("White");
         unassigned.setEmail("carol@tcu.edu");
         unassigned.setRole(UserRole.STUDENT);
         Long unassignedId = userRepository.save(unassigned).getId();
@@ -194,7 +197,8 @@ class PeerEvaluationControllerIntegrationTest {
         Long otherTeamId = teamRepository.save(otherTeam).getId();
 
         UserEntity otherStudent = new UserEntity();
-        otherStudent.setName("Dave Brown");
+        otherStudent.setFirstName("Dave");
+        otherStudent.setLastName("Brown");
         otherStudent.setEmail("dave@tcu.edu");
         otherStudent.setRole(UserRole.STUDENT);
         otherStudent.setTeamId(otherTeamId);

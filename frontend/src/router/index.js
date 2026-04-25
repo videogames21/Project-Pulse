@@ -7,7 +7,8 @@ import PeerEvalView       from '../features/peer-eval/PeerEvalView.vue'
 import MyReportView       from '../features/report/MyReportView.vue'
 import SectionReportView  from '../features/instructor/SectionReportView.vue'
 import TeamWARView        from '../features/instructor/TeamWARView.vue'
-import InstructorsView    from '../features/admin/InstructorsView.vue'
+import InstructorsView       from '../features/admin/InstructorsView.vue'
+import InstructorDetailView  from '../features/admin/InstructorDetailView.vue'
 import SectionsView       from '../features/admin/SectionsView.vue'
 import SectionDetailView  from '../features/admin/SectionDetailView.vue'
 import CreateSectionView  from '../features/admin/CreateSectionView.vue'
@@ -34,7 +35,8 @@ const routes = [
   { path: '/team-war',          component: TeamWARView,        meta: { role: 'instructor' } },
 
   // Admin
-  { path: '/admin/instructors',     component: InstructorsView,   meta: { role: 'admin' } },
+  { path: '/admin/instructors',         component: InstructorsView,      meta: { role: 'admin' } },
+  { path: '/admin/instructors/:id',     component: InstructorDetailView, meta: { role: 'admin' } },
   { path: '/admin/sections',        component: SectionsView,      meta: { role: 'admin' } },
   { path: '/admin/sections/create',  component: CreateSectionView, meta: { role: 'admin' } },
   { path: '/admin/sections/:id/edit', component: EditSectionView,  meta: { role: 'admin' } },

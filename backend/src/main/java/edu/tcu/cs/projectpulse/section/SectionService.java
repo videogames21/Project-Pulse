@@ -171,12 +171,12 @@ public class SectionService {
                     List<UserEntity> members = userRepository.findByTeamId(t.getId());
                     List<String> students = members.stream()
                             .filter(u -> u.getRole() == UserRole.STUDENT)
-                            .map(UserEntity::getName)
+                            .map(u -> u.getFirstName() + " " + u.getLastName())
                             .sorted()
                             .toList();
                     List<String> instructors = members.stream()
                             .filter(u -> u.getRole() == UserRole.INSTRUCTOR)
-                            .map(UserEntity::getName)
+                            .map(u -> u.getFirstName() + " " + u.getLastName())
                             .sorted()
                             .toList();
                     return new SectionDetailResponse.TeamSummary(t.getId(), t.getName(), students, instructors);
@@ -186,14 +186,14 @@ public class SectionService {
         List<String> studentsNotOnTeam = userRepository
                 .findByRoleAndTeamIdIsNull(UserRole.STUDENT)
                 .stream()
-                .map(UserEntity::getName)
+                .map(u -> u.getFirstName() + " " + u.getLastName())
                 .sorted()
                 .toList();
 
         List<String> instructorsNotOnTeam = userRepository
                 .findByRoleAndTeamIdIsNull(UserRole.INSTRUCTOR)
                 .stream()
-                .map(UserEntity::getName)
+                .map(u -> u.getFirstName() + " " + u.getLastName())
                 .sorted()
                 .toList();
 

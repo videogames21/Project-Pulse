@@ -119,7 +119,7 @@ public class PeerEvaluationService {
 
         if (evaluations.isEmpty()) {
             return new StudentPeerEvaluationReportResponse(
-                    studentId, student.getName(), weekStart, 0, List.of(), List.of(), BigDecimal.ZERO);
+                    studentId, student.getFirstName() + " " + student.getLastName(), weekStart, 0, List.of(), List.of(), BigDecimal.ZERO);
         }
 
         // Per-criterion averages (sorted by criterionId for deterministic output)
@@ -158,7 +158,7 @@ public class PeerEvaluationService {
                 .toList();
 
         return new StudentPeerEvaluationReportResponse(
-                studentId, student.getName(), weekStart,
+                studentId, student.getFirstName() + " " + student.getLastName(), weekStart,
                 evaluations.size(), averageCriterionScores, publicComments, averageGrade);
     }
 
@@ -171,7 +171,7 @@ public class PeerEvaluationService {
         List<UserEntity> students = teamRepository.findAllBySectionNameOrderByNameAsc(sectionName)
                 .stream()
                 .flatMap(team -> userRepository.findByRoleAndTeamId(UserRole.STUDENT, team.getId()).stream())
-                .sorted(Comparator.comparing(u -> lastName(u.getName())))
+                .sorted(Comparator.comparing(UserEntity::getLastName))
                 .toList();
 
         List<StudentEvaluationSummary> summaries = students.stream()
@@ -191,7 +191,7 @@ public class PeerEvaluationService {
         List<ReceivedEvaluationDetail> details = received.stream()
                 .map(eval -> {
                     String evaluatorName = userRepository.findById(eval.getEvaluatorId())
-                            .map(UserEntity::getName)
+                            .map(u -> u.getFirstName() + " " + u.getLastName())
                             .orElse("Unknown");
                     BigDecimal total = eval.getScores().stream()
                             .map(s -> BigDecimal.valueOf(s.getScore()))
@@ -209,15 +209,10 @@ public class PeerEvaluationService {
                         .divide(BigDecimal.valueOf(received.size()), 2, RoundingMode.HALF_UP);
 
         return new StudentEvaluationSummary(
-                student.getId(), student.getName(), didSubmit,
+                student.getId(), student.getFirstName() + " " + student.getLastName(), didSubmit,
                 received.size(), averageGrade, details);
     }
 
-    private static String lastName(String fullName) {
-        String trimmed = fullName.trim();
-        int lastSpace = trimmed.lastIndexOf(' ');
-        return lastSpace >= 0 ? trimmed.substring(lastSpace + 1) : trimmed;
-    }
 
     // ── Internals ────────────────────────────────────────────────────────────
 
