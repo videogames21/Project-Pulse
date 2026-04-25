@@ -1,9 +1,14 @@
 package edu.tcu.cs.projectpulse.war;
 
+import edu.tcu.cs.projectpulse.team.TeamEntity;
+import edu.tcu.cs.projectpulse.team.TeamNotFoundException;
+import edu.tcu.cs.projectpulse.team.TeamRepository;
 import edu.tcu.cs.projectpulse.user.UserEntity;
 import edu.tcu.cs.projectpulse.user.UserNotFoundException;
 import edu.tcu.cs.projectpulse.user.UserRepository;
 import edu.tcu.cs.projectpulse.user.UserRole;
+import edu.tcu.cs.projectpulse.war.dto.StudentWARSummary;
+import edu.tcu.cs.projectpulse.war.dto.TeamWARReportResponse;
 import edu.tcu.cs.projectpulse.war.dto.WARActivityRequest;
 import edu.tcu.cs.projectpulse.war.dto.WARActivityResponse;
 import edu.tcu.cs.projectpulse.war.dto.WARResponse;
@@ -12,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -20,13 +26,16 @@ public class WARService {
     private final WARRepository warRepository;
     private final WARActivityRepository activityRepository;
     private final UserRepository userRepository;
+    private final TeamRepository teamRepository;
 
     public WARService(WARRepository warRepository,
                       WARActivityRepository activityRepository,
-                      UserRepository userRepository) {
+                      UserRepository userRepository,
+                      TeamRepository teamRepository) {
         this.warRepository = warRepository;
         this.activityRepository = activityRepository;
         this.userRepository = userRepository;
+        this.teamRepository = teamRepository;
     }
 
     public WARResponse getWAR(Long studentId, LocalDate weekStart) {
@@ -109,6 +118,34 @@ public class WARService {
 
         war.removeActivity(activity);
         warRepository.save(war);
+    }
+
+    // ── UC-32: Team WAR report ───────────────────────────────────────────────
+
+    public TeamWARReportResponse getTeamReport(Long teamId, LocalDate weekStart) {
+        validateWeekStart(weekStart);
+
+        TeamEntity team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new TeamNotFoundException(teamId));
+
+        List<StudentWARSummary> students = userRepository
+                .findByRoleAndTeamId(UserRole.STUDENT, teamId)
+                .stream()
+                .sorted(Comparator.comparing(UserEntity::getLastName))
+                .map(student -> {
+                    WAREntity war = warRepository
+                            .findByStudentIdAndWeekStart(student.getId(), weekStart)
+                            .orElse(null);
+                    boolean didSubmit = war != null;
+                    List<WARActivityResponse> activities = didSubmit
+                            ? war.getActivities().stream().map(this::toActivityResponse).toList()
+                            : List.of();
+                    String fullName = student.getFirstName() + " " + student.getLastName();
+                    return new StudentWARSummary(student.getId(), fullName, didSubmit, activities);
+                })
+                .toList();
+
+        return new TeamWARReportResponse(teamId, team.getName(), weekStart, students);
     }
 
     private void validateStudentExists(Long studentId) {
