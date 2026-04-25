@@ -1,6 +1,5 @@
 package edu.tcu.cs.projectpulse.peerevaluation;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.tcu.cs.projectpulse.team.TeamEntity;
 import edu.tcu.cs.projectpulse.team.TeamRepository;
 import edu.tcu.cs.projectpulse.user.UserEntity;
@@ -11,13 +10,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
-import java.util.List;
-import java.util.Map;
+import java.time.LocalDate;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -31,7 +28,6 @@ class StudentPeerEvalRangeReportIntegrationTest {
     @Autowired UserRepository userRepository;
     @Autowired TeamRepository teamRepository;
 
-    ObjectMapper objectMapper = new ObjectMapper();
     MockMvc mockMvc;
 
     private static final String WEEK1 = "2024-09-02";
@@ -72,19 +68,19 @@ class StudentPeerEvalRangeReportIntegrationTest {
     }
 
     private void submitEval(Long evaluatorId, Long evaluateeId, String weekStart,
-                            String publicComment, String privateComment) throws Exception {
-        var body = Map.of(
-                "evaluatorId", evaluatorId,
-                "evaluateeId", evaluateeId,
-                "weekStart", weekStart,
-                "scores", List.of(Map.of("criterionId", 1, "score", 8)),
-                "publicComments", publicComment,
-                "privateComments", privateComment
-        );
-        mockMvc.perform(post("/api/v1/peer-evaluations")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
-                .andExpect(status().isCreated());
+                            String publicComment, String privateComment) {
+        PeerEvaluationEntity eval = new PeerEvaluationEntity();
+        eval.setEvaluatorId(evaluatorId);
+        eval.setEvaluateeId(evaluateeId);
+        eval.setWeekStart(LocalDate.parse(weekStart));
+        eval.setPublicComments(publicComment);
+        eval.setPrivateComments(privateComment);
+        PeerEvaluationScoreEntity score = new PeerEvaluationScoreEntity();
+        score.setPeerEvaluation(eval);
+        score.setCriterionId(1L);
+        score.setScore(8);
+        eval.getScores().add(score);
+        peerEvaluationRepository.save(eval);
     }
 
     // ── Tests ─────────────────────────────────────────────────────────────────
@@ -163,6 +159,22 @@ class StudentPeerEvalRangeReportIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.weeks", hasSize(1)))
                 .andExpect(jsonPath("$.data.weeks[0].weekStart").value(WEEK1));
+    }
+
+    @Test
+    void getRangeReport_userIsNotAStudent_returns400() throws Exception {
+        UserEntity instructor = new UserEntity();
+        instructor.setFirstName("Prof");
+        instructor.setLastName("Jones");
+        instructor.setEmail("jones@tcu.edu");
+        instructor.setRole(UserRole.INSTRUCTOR);
+        Long instructorId = userRepository.save(instructor).getId();
+
+        mockMvc.perform(get("/api/v1/peer-evaluations/students/" + instructorId + "/report/range")
+                        .param("startWeek", WEEK1)
+                        .param("endWeek", WEEK2))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
     }
 
     @Test

@@ -1,6 +1,5 @@
 package edu.tcu.cs.projectpulse.peerevaluation;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.tcu.cs.projectpulse.team.TeamEntity;
 import edu.tcu.cs.projectpulse.team.TeamRepository;
 import edu.tcu.cs.projectpulse.user.UserEntity;
@@ -10,11 +9,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -30,7 +29,6 @@ class StudentPeerEvaluationReportIntegrationTest {
     @Autowired TeamRepository teamRepository;
     @Autowired PeerEvaluationRepository peerEvaluationRepository;
 
-    ObjectMapper objectMapper = new ObjectMapper();
     MockMvc mockMvc;
 
     private static final String PAST_MONDAY = "2024-09-02";
@@ -75,19 +73,21 @@ class StudentPeerEvaluationReportIntegrationTest {
 
     private void submitEval(Long evaluatorId, Long evalEvalId, String weekStart,
                             List<Map<String, Object>> scores,
-                            String publicComments, String privateComments) throws Exception {
-        var body = Map.of(
-                "evaluatorId", evaluatorId,
-                "evaluateeId", evalEvalId,
-                "weekStart", weekStart,
-                "scores", scores,
-                "publicComments", publicComments,
-                "privateComments", privateComments
-        );
-        mockMvc.perform(post("/api/v1/peer-evaluations")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
-                .andExpect(status().isCreated());
+                            String publicComments, String privateComments) {
+        PeerEvaluationEntity eval = new PeerEvaluationEntity();
+        eval.setEvaluatorId(evaluatorId);
+        eval.setEvaluateeId(evalEvalId);
+        eval.setWeekStart(LocalDate.parse(weekStart));
+        eval.setPublicComments(publicComments);
+        eval.setPrivateComments(privateComments);
+        for (Map<String, Object> s : scores) {
+            PeerEvaluationScoreEntity score = new PeerEvaluationScoreEntity();
+            score.setPeerEvaluation(eval);
+            score.setCriterionId(((Number) s.get("criterionId")).longValue());
+            score.setScore((Integer) s.get("score"));
+            eval.getScores().add(score);
+        }
+        peerEvaluationRepository.save(eval);
     }
 
     private List<Map<String, Object>> scores(int s1, int s2) {
@@ -184,6 +184,21 @@ class StudentPeerEvaluationReportIntegrationTest {
         mockMvc.perform(get("/api/v1/peer-evaluations/students/9999/report")
                         .param("weekStart", PAST_MONDAY))
                 .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void getReport_userIsNotAStudent_returns400() throws Exception {
+        UserEntity instructor = new UserEntity();
+        instructor.setFirstName("Prof");
+        instructor.setLastName("Jones");
+        instructor.setEmail("jones@tcu.edu");
+        instructor.setRole(UserRole.INSTRUCTOR);
+        Long instructorId = userRepository.save(instructor).getId();
+
+        mockMvc.perform(get("/api/v1/peer-evaluations/students/" + instructorId + "/report")
+                        .param("weekStart", PAST_MONDAY))
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
     }
 

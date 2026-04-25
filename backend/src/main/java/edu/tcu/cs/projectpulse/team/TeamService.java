@@ -91,6 +91,10 @@ public class TeamService {
         UserEntity instructor = userRepository.findById(instructorId)
                 .orElseThrow(() -> new UserNotFoundException(instructorId));
 
+        if (instructor.getRole() != UserRole.INSTRUCTOR) {
+            throw new IllegalArgumentException("User " + instructorId + " is not an instructor.");
+        }
+
         if (!teamId.equals(instructor.getTeamId())) {
             throw new IllegalStateException("Instructor is not assigned to this team.");
         }
@@ -146,6 +150,10 @@ public class TeamService {
 
         UserEntity student = userRepository.findById(studentId)
                 .orElseThrow(() -> new UserNotFoundException(studentId));
+
+        if (student.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("User " + studentId + " is not a student.");
+        }
 
         if (!teamId.equals(student.getTeamId())) {
             throw new IllegalStateException("Student is not a member of this team.");
