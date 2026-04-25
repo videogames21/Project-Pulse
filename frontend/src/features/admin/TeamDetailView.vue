@@ -48,8 +48,8 @@ async function openAssignInstructor() {
   assignInstructorError.value = ''
   selectedInstructorId.value  = null
   try {
-    const res = await usersApi.getInstructors()
-    availableInstructors.value = res.data.filter(i => i.teamId === null)
+    const res = await usersApi.getInstructors(null, true)
+    availableInstructors.value = res.data.filter(i => i.teamId === null && i.status === 'ACTIVE')
   } catch (e) {
     assignInstructorError.value = 'Failed to load instructors.'
   }

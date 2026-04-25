@@ -5,5 +5,6 @@ import java.util.List;
 
 public record ActiveWeekResponse(
         Long sectionId,
-        List<LocalDate> activeWeeks
+        List<LocalDate> activeWeeks,
+        List<LocalDate> configuredWeeks
 ) {}

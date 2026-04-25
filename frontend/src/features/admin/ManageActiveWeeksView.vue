@@ -67,14 +67,20 @@ onMounted(async () => {
 
     allWeeks.value = generateAllMondays(section.value.startDate, section.value.endDate)
 
-    const saved = new Set(weeksRes.data.activeWeeks ?? [])
+    const saved      = new Set(weeksRes.data.activeWeeks      ?? [])
+    const configured = new Set(weeksRes.data.configuredWeeks  ?? [])
 
-    if (saved.size === 0) {
-      // No prior setup — default all weeks active
+    if (configured.size === 0) {
+      // Never been configured — default all weeks active
       activeSet.value = new Set(allWeeks.value)
     } else {
-      // Prior setup exists — restore exactly the saved weeks
-      activeSet.value = saved
+      // For each Monday in the current date range:
+      //   - in saved               → was active       → active ✓
+      //   - in configured, not saved → deliberately inactive → inactive ✓
+      //   - not in configured      → new from expansion   → default active ✓
+      activeSet.value = new Set(
+        allWeeks.value.filter(w => saved.has(w) || !configured.has(w))
+      )
     }
   } catch (e) {
     loadError.value = 'Failed to load section data. Please try again.'
@@ -123,7 +129,7 @@ async function confirmSave() {
     await activeWeeksApi.save(route.params.id, selectedWeeks())
     router.push(`/admin/sections/${route.params.id}`)
   } catch (e) {
-    saveError.value = e.response?.data?.message ?? e.message ?? 'Failed to save active weeks.'
+    saveError.value = e.data?.message ?? e.message ?? 'Failed to save active weeks.'
     saving.value = false
   }
 }
