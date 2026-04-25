@@ -8,7 +8,9 @@ import edu.tcu.cs.projectpulse.peerevaluation.dto.ScoreRequest;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.ScoreResponse;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.SectionPeerEvaluationReportResponse;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.StudentEvaluationSummary;
+import edu.tcu.cs.projectpulse.peerevaluation.dto.StudentPeerEvalRangeReportResponse;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.StudentPeerEvaluationReportResponse;
+import edu.tcu.cs.projectpulse.peerevaluation.dto.WeeklyPeerEvalSummary;
 import edu.tcu.cs.projectpulse.team.TeamRepository;
 import edu.tcu.cs.projectpulse.user.UserEntity;
 import edu.tcu.cs.projectpulse.user.UserNotFoundException;
@@ -213,6 +215,59 @@ public class PeerEvaluationService {
                 received.size(), averageGrade, details);
     }
 
+
+    // ── UC-33: Instructor range report for a student ─────────────────────────
+
+    public StudentPeerEvalRangeReportResponse getStudentRangeReport(Long studentId,
+                                                                     LocalDate startWeek,
+                                                                     LocalDate endWeek) {
+        validateWeekStart(startWeek);
+        validateWeekStart(endWeek);
+        if (endWeek.isBefore(startWeek)) {
+            throw new IllegalArgumentException("endWeek must not be before startWeek.");
+        }
+
+        UserEntity student = userRepository.findById(studentId)
+                .orElseThrow(() -> new UserNotFoundException(studentId));
+
+        List<PeerEvaluationEntity> all =
+                peerEvaluationRepository.findAllByEvaluateeIdAndWeekStartBetweenOrderByWeekStartAsc(
+                        studentId, startWeek, endWeek);
+
+        // Group by week (preserving chronological order)
+        Map<LocalDate, List<PeerEvaluationEntity>> byWeek = new LinkedHashMap<>();
+        for (PeerEvaluationEntity eval : all) {
+            byWeek.computeIfAbsent(eval.getWeekStart(), k -> new ArrayList<>()).add(eval);
+        }
+
+        List<WeeklyPeerEvalSummary> weeks = byWeek.entrySet().stream()
+                .map(entry -> {
+                    List<PeerEvaluationEntity> evals = entry.getValue();
+                    List<ReceivedEvaluationDetail> details = evals.stream()
+                            .map(eval -> {
+                                String evaluatorName = userRepository.findById(eval.getEvaluatorId())
+                                        .map(u -> u.getFirstName() + " " + u.getLastName())
+                                        .orElse("Unknown");
+                                BigDecimal total = eval.getScores().stream()
+                                        .map(s -> BigDecimal.valueOf(s.getScore()))
+                                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                                return new ReceivedEvaluationDetail(
+                                        eval.getEvaluatorId(), evaluatorName, total,
+                                        eval.getPublicComments(), eval.getPrivateComments());
+                            })
+                            .toList();
+                    BigDecimal avgGrade = details.stream()
+                            .map(ReceivedEvaluationDetail::totalScore)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add)
+                            .divide(BigDecimal.valueOf(evals.size()), 2, RoundingMode.HALF_UP);
+                    return new WeeklyPeerEvalSummary(entry.getKey(), evals.size(), avgGrade, details);
+                })
+                .toList();
+
+        return new StudentPeerEvalRangeReportResponse(
+                studentId, student.getFirstName() + " " + student.getLastName(),
+                startWeek, endWeek, weeks);
+    }
 
     // ── Internals ────────────────────────────────────────────────────────────
 
