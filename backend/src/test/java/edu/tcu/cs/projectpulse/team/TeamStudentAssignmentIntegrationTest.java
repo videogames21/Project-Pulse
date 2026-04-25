@@ -79,20 +79,20 @@ class TeamStudentAssignmentIntegrationTest {
 
     @Test
     void findStudents_withStudents_returnsAllStudents() throws Exception {
-        createStudent("Alice Chen", "alice@tcu.edu");
+        createStudent("Test Student A", "alice@tcu.edu");
         createStudent("Bob Smith",  "bob@tcu.edu");
 
         mockMvc.perform(get("/api/v1/users").param("role", "STUDENT"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(2)))
-                .andExpect(jsonPath("$.data[*].name", containsInAnyOrder("Alice Chen", "Bob Smith")));
+                .andExpect(jsonPath("$.data[*].name", containsInAnyOrder("Test Student A", "Bob Smith")));
     }
 
     // ── GET /api/v1/users?unassigned=true ────────────────────────────────────
 
     @Test
     void findUnassignedStudents_allUnassigned_returnsAll() throws Exception {
-        createStudent("Alice Chen", "alice@tcu.edu");
+        createStudent("Test Student A", "alice@tcu.edu");
         createStudent("Bob Smith",  "bob@tcu.edu");
 
         mockMvc.perform(get("/api/v1/users").param("role", "STUDENT").param("unassigned", "true"))
@@ -103,7 +103,7 @@ class TeamStudentAssignmentIntegrationTest {
     @Test
     void findUnassignedStudents_someAssigned_returnsOnlyUnassigned() throws Exception {
         Long teamId  = createTeam("Team Alpha");
-        Long aliceId = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
         createStudent("Bob Smith", "bob@tcu.edu");
 
         assign(teamId, List.of(aliceId));
@@ -118,12 +118,12 @@ class TeamStudentAssignmentIntegrationTest {
 
     @Test
     void findUserById_unassignedStudent_returns200WithNullTeamId() throws Exception {
-        Long aliceId = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
 
         mockMvc.perform(get("/api/v1/users/" + aliceId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.name").value("Alice Chen"))
+                .andExpect(jsonPath("$.data.name").value("Test Student A"))
                 .andExpect(jsonPath("$.data.role").value("STUDENT"))
                 .andExpect(jsonPath("$.data.teamId").isEmpty());
     }
@@ -131,7 +131,7 @@ class TeamStudentAssignmentIntegrationTest {
     @Test
     void findUserById_afterAssignment_teamIdIsUpdated() throws Exception {
         Long teamId  = createTeam("Team Alpha");
-        Long aliceId = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
 
         assign(teamId, List.of(aliceId));
 
@@ -152,7 +152,7 @@ class TeamStudentAssignmentIntegrationTest {
     @Test
     void assignStudents_validRequest_returns200() throws Exception {
         Long teamId  = createTeam("Team Alpha");
-        Long aliceId = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
         Long bobId   = createStudent("Bob Smith",  "bob@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
@@ -165,7 +165,7 @@ class TeamStudentAssignmentIntegrationTest {
     @Test
     void assignStudents_studentsAppearInTeamDetailResponse() throws Exception {
         Long teamId  = createTeam("Team Alpha");
-        Long aliceId = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
         Long bobId   = createStudent("Bob Smith",  "bob@tcu.edu");
 
         assign(teamId, List.of(aliceId, bobId));
@@ -174,12 +174,12 @@ class TeamStudentAssignmentIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.students", hasSize(2)))
                 .andExpect(jsonPath("$.data.students[*].name",
-                        containsInAnyOrder("Alice Chen", "Bob Smith")));
+                        containsInAnyOrder("Test Student A", "Bob Smith")));
     }
 
     @Test
     void assignStudents_teamNotFound_returns404() throws Exception {
-        Long aliceId = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/9999/students")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -203,7 +203,7 @@ class TeamStudentAssignmentIntegrationTest {
     void assignStudents_studentAlreadyOnAnotherTeam_returns409() throws Exception {
         Long teamAlphaId = createTeam("Team Alpha");
         Long teamBetaId  = createTeam("Team Beta");
-        Long aliceId     = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId     = createStudent("Test Student A", "alice@tcu.edu");
 
         assign(teamAlphaId, List.of(aliceId));
 
@@ -230,7 +230,7 @@ class TeamStudentAssignmentIntegrationTest {
     @Test
     void removeStudent_validRequest_returns200() throws Exception {
         Long teamId  = createTeam("Team Alpha");
-        Long aliceId = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
 
         assign(teamId, List.of(aliceId));
 
@@ -242,7 +242,7 @@ class TeamStudentAssignmentIntegrationTest {
     @Test
     void removeStudent_studentReturnsToUnassignedPool() throws Exception {
         Long teamId  = createTeam("Team Alpha");
-        Long aliceId = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
 
         assign(teamId, List.of(aliceId));
 
@@ -253,7 +253,7 @@ class TeamStudentAssignmentIntegrationTest {
         mockMvc.perform(get("/api/v1/users").param("role", "STUDENT").param("unassigned", "true"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
-                .andExpect(jsonPath("$.data[0].name").value("Alice Chen"));
+                .andExpect(jsonPath("$.data[0].name").value("Test Student A"));
 
         // Student no longer in team's member list
         mockMvc.perform(get("/api/v1/teams/" + teamId))
@@ -268,7 +268,7 @@ class TeamStudentAssignmentIntegrationTest {
 
     @Test
     void removeStudent_teamNotFound_returns404() throws Exception {
-        Long aliceId = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
 
         mockMvc.perform(delete("/api/v1/teams/9999/students/" + aliceId))
                 .andExpect(status().isNotFound())
@@ -288,7 +288,7 @@ class TeamStudentAssignmentIntegrationTest {
     void removeStudent_studentNotOnThisTeam_returns409() throws Exception {
         Long teamAlphaId = createTeam("Team Alpha");
         Long teamBetaId  = createTeam("Team Beta");
-        Long aliceId     = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId     = createStudent("Test Student A", "alice@tcu.edu");
 
         assign(teamAlphaId, List.of(aliceId));
 
@@ -312,7 +312,7 @@ class TeamStudentAssignmentIntegrationTest {
     @Test
     void getTeamById_partialAssignment_onlyShowsAssignedMembers() throws Exception {
         Long teamId  = createTeam("Team Alpha");
-        Long aliceId = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
         Long bobId   = createStudent("Bob Smith",  "bob@tcu.edu");
         createStudent("Carol White", "carol@tcu.edu"); // left unassigned
 
@@ -322,14 +322,14 @@ class TeamStudentAssignmentIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.students", hasSize(2)))
                 .andExpect(jsonPath("$.data.students[*].name",
-                        containsInAnyOrder("Alice Chen", "Bob Smith")));
+                        containsInAnyOrder("Test Student A", "Bob Smith")));
     }
 
     @Test
     void getTeamById_studentsIsolatedBetweenTeams() throws Exception {
         Long teamAlphaId = createTeam("Team Alpha");
         Long teamBetaId  = createTeam("Team Beta");
-        Long aliceId     = createStudent("Alice Chen", "alice@tcu.edu");
+        Long aliceId     = createStudent("Test Student A", "alice@tcu.edu");
         Long bobId       = createStudent("Bob Smith",  "bob@tcu.edu");
 
         assign(teamAlphaId, List.of(aliceId));
@@ -338,7 +338,7 @@ class TeamStudentAssignmentIntegrationTest {
         mockMvc.perform(get("/api/v1/teams/" + teamAlphaId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.students", hasSize(1)))
-                .andExpect(jsonPath("$.data.students[0].name").value("Alice Chen"));
+                .andExpect(jsonPath("$.data.students[0].name").value("Test Student A"));
 
         mockMvc.perform(get("/api/v1/teams/" + teamBetaId))
                 .andExpect(status().isOk())
