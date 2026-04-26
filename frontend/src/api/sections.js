@@ -19,4 +19,8 @@ export const sectionsApi = {
   update(id, payload) {
     return api.put(`/api/v1/sections/${id}`, payload)
   },
+
+  getRubricBySectionName(sectionName) {
+    return api.get(`/api/v1/sections/name/${encodeURIComponent(sectionName)}/rubric`)
+  },
 }

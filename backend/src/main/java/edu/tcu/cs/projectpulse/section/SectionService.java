@@ -217,6 +217,16 @@ public class SectionService {
         );
     }
 
+    public RubricEntity getRubricForSection(String sectionName) {
+        SectionEntity section = sectionRepository.findByName(sectionName)
+                .orElseThrow(() -> new SectionNotFoundException(sectionName));
+        if (section.getRubricId() == null) {
+            throw new IllegalStateException("Section \"" + sectionName + "\" has no rubric assigned.");
+        }
+        return rubricRepository.findById(section.getRubricId())
+                .orElseThrow(() -> new RubricNotFoundException(section.getRubricId()));
+    }
+
     @Transactional
     public void delete(Long id) {
         SectionEntity section = sectionRepository.findById(id)

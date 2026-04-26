@@ -53,7 +53,8 @@ const filteredStudents = computed(() => {
 
 const submitted    = computed(() => report.value?.students.filter(s => s.didSubmit)         ?? [])
 const nonSubmitters = computed(() => report.value?.students.filter(s => !s.didSubmit)       ?? [])
-const avgGrade     = computed(() => {
+const maxGrade  = computed(() => report.value?.maxGrade ?? 0)
+const avgGrade  = computed(() => {
   const withEvals = report.value?.students.filter(s => s.evaluationCount > 0) ?? []
   if (!withEvals.length) return '—'
   const sum = withEvals.reduce((acc, s) => acc + Number(s.averageGrade), 0)
@@ -89,11 +90,6 @@ async function fetchReport() {
 watch([selectedWeek, sectionName], fetchReport)
 onMounted(fetchReport)
 
-function pct(grade) {
-  // Scores are 1–10 per criterion; we need the total max to be meaningful.
-  // Since we don't know criterion count here, show the raw grade.
-  return grade !== null ? Number(grade).toFixed(1) : '—'
-}
 </script>
 
 <template>
@@ -148,7 +144,7 @@ function pct(grade) {
           <div class="stat-val" :style="`color:${nonSubmitters.length > 0 ? 'var(--red)' : 'var(--green)'}`">{{ nonSubmitters.length }}</div>
           <div class="stat-lbl">Missing</div>
         </div>
-        <div class="stat"><div class="stat-val">{{ avgGrade }}</div><div class="stat-lbl">Section Avg</div></div>
+        <div class="stat"><div class="stat-val">{{ avgGrade !== '—' ? `${avgGrade}/${maxGrade}` : '—' }}</div><div class="stat-lbl">Section Avg</div></div>
       </div>
 
       <!-- Missing submissions alert -->
@@ -187,7 +183,7 @@ function pct(grade) {
                     </span>
                   </td>
                   <td>{{ s.evaluationCount }}</td>
-                  <td>{{ pct(s.averageGrade) }}</td>
+                  <td>{{ s.evaluationCount > 0 ? `${Number(s.averageGrade).toFixed(1)}/${maxGrade}` : '—' }}</td>
                   <td>
                     <button
                       class="btn btn-secondary btn-sm"
@@ -211,7 +207,7 @@ function pct(grade) {
                     >
                       <div class="flex justify-between items-center" style="margin-bottom:6px">
                         <strong style="font-size:.9rem">{{ ev.evaluatorName }}</strong>
-                        <span class="badge badge-purple">Score: {{ Number(ev.totalScore).toFixed(1) }}</span>
+                        <span class="badge badge-purple">Score: {{ Number(ev.totalScore).toFixed(1) }}/{{ maxGrade }}</span>
                       </div>
                       <div v-if="ev.publicComments" style="margin-bottom:4px;font-size:.85rem">
                         <span class="muted" style="font-weight:600">Public: </span>{{ ev.publicComments }}

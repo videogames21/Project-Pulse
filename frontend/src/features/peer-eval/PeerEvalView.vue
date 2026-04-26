@@ -4,8 +4,8 @@ import AppLayout from '../../components/AppLayout.vue'
 import { useAuthStore } from '../../stores/auth'
 import { usePeerEvalStore } from '../../stores/peerEval'
 import { teamsApi } from '../../api/teams.js'
+import { sectionsApi } from '../../api/sections.js'
 import { peerEvaluationsApi } from '../../api/peerEvaluations.js'
-import { RUBRIC_CRITERIA } from '../../data/mockData'
 
 const SCORE_MIN = 1
 const SCORE_MAX = 10
@@ -14,7 +14,9 @@ const auth      = useAuthStore()
 const evalStore = usePeerEvalStore()
 
 const members      = ref([])
+const criteria     = ref([])   // loaded from section rubric API
 const loading      = ref(true)
+const loadError    = ref('')
 const noTeam       = ref(false)
 const activeIdx    = ref(0)
 const submitting   = ref(false)
@@ -34,28 +36,32 @@ function getPreviousMonday() {
 
 const weekStart    = getPreviousMonday()
 const activeMember = computed(() => members.value[activeIdx.value])
-const memberTotal  = (id) =>
-  RUBRIC_CRITERIA.reduce((s, c) => s + (evalStore.scores[id]?.[c.id] ?? SCORE_MIN), 0)
-const maxTotal     = RUBRIC_CRITERIA.length * SCORE_MAX
+
+const memberTotal = (id) =>
+  criteria.value.reduce((s, c) => s + (evalStore.scores[id]?.[c.id] ?? SCORE_MIN), 0)
+const maxTotal = computed(() => criteria.value.length * SCORE_MAX)
 
 onMounted(async () => {
   await auth.refreshTeam()
 
-  const teamId = auth.user?.teamId
+  const teamId    = auth.user?.teamId
+  const section   = auth.user?.section
+
   if (!teamId) {
     noTeam.value  = true
     loading.value = false
     return
   }
 
-  // Draft from a previous team is stale — discard it
+  // Stale draft from a different team — discard it
   if (evalStore.teamId && evalStore.teamId !== teamId) {
     evalStore.reset()
   }
 
   try {
-    const res          = await teamsApi.getById(teamId)
-    const teamStudents = res.data?.students ?? []
+    // 1. Load team members
+    const teamRes      = await teamsApi.getById(teamId)
+    const teamStudents = teamRes.data?.students ?? []
 
     const self = teamStudents.find(s => s.id === auth.user.id)
     const rest = teamStudents.filter(s => s.id !== auth.user.id)
@@ -67,19 +73,46 @@ onMounted(async () => {
       ...rest.map(s => ({ id: s.id, name: `${s.firstName} ${s.lastName}` })),
     ]
 
-    // Set teamId in store so future visits detect stale drafts
     evalStore.teamId = teamId
 
-    // Initialise any members not yet in the draft
+    // 2. Load rubric criteria from the section's assigned rubric
+    if (section) {
+      try {
+        const rubricRes = await sectionsApi.getRubricBySectionName(section)
+        criteria.value  = rubricRes.data?.criteria ?? []
+      } catch {
+        loadError.value = 'Could not load rubric for this section. Contact your admin.'
+      }
+    }
+
+    // 3. Initialise store entries for any member not yet in the draft
     members.value.forEach(m => {
       if (!evalStore.scores[m.id]) {
         evalStore.scores[m.id] =
-          Object.fromEntries(RUBRIC_CRITERIA.map(c => [c.id, SCORE_MIN]))
+          Object.fromEntries(criteria.value.map(c => [c.id, SCORE_MIN]))
       }
       if (!evalStore.comments[m.id]) {
         evalStore.comments[m.id] = { pub: '', priv: '' }
       }
     })
+
+    // 4. Sync with server — fetch any evaluations already submitted this week
+    const existingRes  = await peerEvaluationsApi.getByEvaluator(auth.user.id, weekStart)
+    const existingList = existingRes.data ?? []
+
+    if (existingList.length > 0) {
+      // Pre-populate store from server state (source of truth on page load)
+      existingList.forEach(ev => {
+        evalStore.evaluationIds[ev.evaluateeId] = ev.id
+        evalStore.scores[ev.evaluateeId] =
+          Object.fromEntries(ev.scores.map(s => [s.criterionId, s.score]))
+        evalStore.comments[ev.evaluateeId] = {
+          pub:  ev.publicComments  ?? '',
+          priv: ev.privateComments ?? '',
+        }
+      })
+      evalStore.submitted = true
+    }
   } catch {
     noTeam.value = true
   } finally {
@@ -92,29 +125,40 @@ async function submitEvaluation() {
   submitError.value = ''
   try {
     for (const member of members.value) {
-      await peerEvaluationsApi.submit({
+      const payload = {
         evaluatorId:    auth.user.id,
         evaluateeId:    member.id,
         weekStart,
-        scores: RUBRIC_CRITERIA.map(c => ({
+        scores: criteria.value.map(c => ({
           criterionId: c.id,
           score:       evalStore.scores[member.id]?.[c.id] ?? SCORE_MIN,
         })),
         publicComments:  evalStore.comments[member.id]?.pub  ?? '',
         privateComments: evalStore.comments[member.id]?.priv ?? '',
-      })
+      }
+
+      const existingId = evalStore.evaluationIds[member.id]
+      if (existingId) {
+        // Already submitted — update existing evaluation
+        await peerEvaluationsApi.update(existingId, payload)
+      } else {
+        // New submission
+        const res = await peerEvaluationsApi.submit(payload)
+        evalStore.evaluationIds[member.id] = res.data?.id
+      }
     }
     evalStore.submitted = true
   } catch (e) {
-    // Conflict (409) means already submitted for this week — treat as success
-    if (e.status === 409) {
-      evalStore.submitted = true
-    } else {
-      submitError.value = e.message ?? 'Submission failed. Please try again.'
-    }
+    submitError.value = e.message ?? 'Submission failed. Please try again.'
   } finally {
     submitting.value = false
   }
+}
+
+function startEditing() {
+  evalStore.submitted = false
+  submitError.value   = ''
+  activeIdx.value     = 0
 }
 </script>
 
@@ -123,27 +167,54 @@ async function submitEvaluation() {
     <!-- Loading -->
     <div v-if="loading" style="text-align:center;padding:60px;color:var(--text-muted)">Loading…</div>
 
-    <!-- Not assigned -->
+    <!-- Not assigned to a team -->
     <div v-else-if="noTeam" class="empty">
       <div class="empty-icon">👥</div>
       <h3>No Team Assigned</h3>
       <p class="muted mt-4">You haven't been assigned to a senior design team yet. Contact your admin.</p>
     </div>
 
-    <!-- Submitted -->
-    <div v-else-if="evalStore.submitted" class="empty">
-      <div class="empty-icon">✅</div>
-      <h3>Peer evaluation submitted!</h3>
-      <p class="muted mt-4">
-        Responses are locked — evaluations cannot be edited after submission (BR-3).
-      </p>
+    <!-- Rubric load error -->
+    <div v-else-if="loadError" class="alert alert-error">{{ loadError }}</div>
+
+    <!-- Submitted banner -->
+    <div v-else-if="evalStore.submitted">
+      <div class="alert alert-success mb-4" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Peer evaluation submitted for week of <strong>{{ weekStart }}</strong>.</span>
+        <button class="btn btn-secondary btn-sm" @click="startEditing">Edit Evaluation</button>
+      </div>
+
+      <!-- Read-only summary of submitted scores -->
+      <div class="card">
+        <div class="card-header"><h3>Submitted Scores</h3></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th v-for="c in criteria" :key="c.id">{{ c.name }}</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="m in members" :key="m.id">
+                <td><strong>{{ m.name }}</strong></td>
+                <td v-for="c in criteria" :key="c.id">
+                  {{ evalStore.scores[m.id]?.[c.id] ?? '—' }}
+                </td>
+                <td><strong>{{ memberTotal(m.id) }}/{{ maxTotal }}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- Eval form -->
     <template v-else>
       <div class="alert alert-info mb-4">
         Evaluate each teammate for the week of <strong>{{ weekStart }}</strong>.
-        Progress is saved automatically. Submissions are final once submitted.
+        Progress is saved automatically.
       </div>
 
       <!-- Member tabs -->
@@ -170,21 +241,21 @@ async function submitEvaluation() {
           <span class="badge badge-purple">{{ memberTotal(activeMember.id) }} / {{ maxTotal }} pts</span>
         </div>
 
-        <div v-for="c in RUBRIC_CRITERIA" :key="c.id" style="margin-bottom:18px">
+        <div v-for="c in criteria" :key="c.id" style="margin-bottom:18px">
           <div class="flex items-center justify-between" style="margin-bottom:3px">
             <h4>{{ c.name }}</h4>
-            <span class="muted" style="font-size:.8rem">{{ SCORE_MIN }}–{{ SCORE_MAX }} pts</span>
+            <span class="muted" style="font-size:.8rem">{{ SCORE_MIN }}–{{ c.maxScore }} pts</span>
           </div>
           <p class="muted" style="font-size:.8rem;margin-bottom:7px">{{ c.description }}</p>
           <div class="score-row">
             <input
               type="range"
               :min="SCORE_MIN"
-              :max="SCORE_MAX"
+              :max="c.maxScore"
               step="1"
               v-model.number="evalStore.scores[activeMember.id][c.id]"
             />
-            <span class="score-val">{{ evalStore.scores[activeMember.id][c.id] }}/{{ SCORE_MAX }}</span>
+            <span class="score-val">{{ evalStore.scores[activeMember.id][c.id] }}/{{ c.maxScore }}</span>
           </div>
         </div>
 
@@ -211,7 +282,7 @@ async function submitEvaluation() {
           :disabled="submitting"
           @click="submitEvaluation"
         >
-          {{ submitting ? 'Submitting…' : 'Submit Peer Evaluation' }}
+          {{ submitting ? 'Submitting…' : (Object.keys(evalStore.evaluationIds).length ? 'Update Evaluation' : 'Submit Peer Evaluation') }}
         </button>
       </div>
     </template>

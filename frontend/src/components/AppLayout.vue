@@ -19,7 +19,10 @@ function handleOutsideClick(e) {
   if (!e.target.closest('.sidebar-footer')) closeMenu()
 }
 
-onMounted(()  => document.addEventListener('click', handleOutsideClick))
+onMounted(() => {
+  document.addEventListener('click', handleOutsideClick)
+  if (auth.user?.id) notifs.fetchFromServer(auth.user.id)
+})
 onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 
 const NAV = {
@@ -27,6 +30,7 @@ const NAV = {
     { path: '/war',       label: 'Weekly Activity Report', icon: '📋' },
     { path: '/peer-eval', label: 'Peer Evaluation',        icon: '⭐' },
     { path: '/my-report', label: 'My Report',              icon: '📊' },
+    { path: '/team-war',  label: 'Team WAR Report',        icon: '👥' },
   ],
   instructor: [
     { path: '/section-report', label: 'Section Peer Eval Report', icon: '📊' },
@@ -105,6 +109,23 @@ function logout() {
         <span class="topbar-title">{{ pageTitle }}</span>
         <span class="topbar-sub">{{ auth.user?.team ? auth.user.team + ' · ' : '' }}{{ auth.user?.section ?? '' }}</span>
       </header>
+
+      <!-- Server notifications (e.g. team removal alerts) -->
+      <div v-if="notifs.serverNotifs.length" style="padding:0 24px;padding-top:16px">
+        <div
+          v-for="n in notifs.serverNotifs"
+          :key="n.id"
+          class="alert alert-warning"
+          style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"
+        >
+          <span>{{ n.message }}</span>
+          <button
+            @click="notifs.dismissServer(n.id)"
+            style="background:none;border:none;cursor:pointer;font-size:1.1rem;padding:0 4px;opacity:.7"
+            title="Dismiss"
+          >×</button>
+        </div>
+      </div>
 
       <!-- Persistent notifications -->
       <div v-if="notifs.notifications.length" style="padding:0 24px;padding-top:16px">
