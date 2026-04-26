@@ -143,13 +143,30 @@ async function save() {
   }
 }
 
-async function remove(id) {
+// ── Delete confirmation ────────────────────────────────────────────────────────
+
+const showDeleteConfirm = ref(false)
+const activityToDelete  = ref(null)
+const deleting          = ref(false)
+
+function openDeleteConfirm(a) {
+  activityToDelete.value  = a
+  showDeleteConfirm.value = true
+}
+
+async function confirmDelete() {
+  deleting.value = true
   try {
-    await warsApi.deleteActivity(auth.user.id, selectedWeek.value, id)
+    await warsApi.deleteActivity(auth.user.id, selectedWeek.value, activityToDelete.value.id)
+    showDeleteConfirm.value = false
+    activityToDelete.value  = null
     notify('Activity deleted.')
     await loadActivities()
   } catch (e) {
     error.value = e.message ?? 'Failed to delete activity.'
+    showDeleteConfirm.value = false
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -220,7 +237,7 @@ function notify(msg) {
                 <td>
                   <div class="flex gap-2">
                     <button class="btn btn-secondary btn-sm" @click="openEdit(a)">Edit</button>
-                    <button class="btn btn-danger btn-sm" @click="remove(a.id)">Delete</button>
+                    <button class="btn btn-danger btn-sm" @click="openDeleteConfirm(a)">Delete</button>
                   </div>
                 </td>
               </tr>
@@ -229,6 +246,29 @@ function notify(msg) {
         </div>
       </div>
     </template>
+
+    <!-- Delete Confirmation Modal -->
+    <div v-if="showDeleteConfirm" class="overlay" @click.self="showDeleteConfirm = false">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>Delete Activity</h3>
+          <button class="modal-close" @click="showDeleteConfirm = false">×</button>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure you want to delete this activity?</p>
+          <p class="muted" style="margin-top:8px;font-size:.875rem">
+            <strong>{{ activityToDelete?.category }}</strong> — {{ activityToDelete?.description }}
+          </p>
+          <p class="muted" style="margin-top:6px;font-size:.825rem">This action cannot be undone.</p>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-secondary" @click="showDeleteConfirm = false">Cancel</button>
+          <button class="btn btn-danger" :disabled="deleting" @click="confirmDelete">
+            {{ deleting ? 'Deleting…' : 'Delete' }}
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Add/Edit Modal -->
     <div v-if="showModal" class="overlay" @click.self="showModal = false">

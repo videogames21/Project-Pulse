@@ -29,6 +29,12 @@ const selectedInstructorId  = ref(null)
 const assigningInstructor   = ref(false)
 const assignInstructorError = ref('')
 
+// Student removal
+const showRemoveStudent  = ref(false)
+const studentToRemove    = ref(null)
+const removingStudent    = ref(false)
+const removeStudentError = ref('')
+
 // Instructor removal
 const showRemoveInstructor  = ref(false)
 const instructorToRemove    = ref(null)
@@ -54,6 +60,27 @@ async function openAssignInstructor() {
     assignInstructorError.value = 'Failed to load instructors.'
   }
   showAssignInstructor.value = true
+}
+
+function openRemoveStudent(student) {
+  studentToRemove.value    = student
+  removeStudentError.value = ''
+  showRemoveStudent.value  = true
+}
+
+async function confirmRemoveStudent() {
+  removingStudent.value    = true
+  removeStudentError.value = ''
+  try {
+    await teamsApi.removeStudent(route.params.id, studentToRemove.value.id)
+    const res = await api.get(`/api/v1/teams/${route.params.id}`)
+    team.value = res.data
+    showRemoveStudent.value = false
+  } catch (e) {
+    removeStudentError.value = e.message
+  } finally {
+    removingStudent.value = false
+  }
 }
 
 function openRemoveInstructor(instructor) {
@@ -205,12 +232,16 @@ async function confirmDelete() {
               <tr>
                 <th>Name</th>
                 <th>Email</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="s in team.students" :key="s.id">
                 <td><strong>{{ s.firstName }} {{ s.lastName }}</strong></td>
                 <td class="muted">{{ s.email }}</td>
+                <td>
+                  <button class="btn btn-secondary btn-sm" style="color:#dc2626" @click="openRemoveStudent(s)">Remove</button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -349,6 +380,29 @@ async function confirmDelete() {
         </div>
       </div>
     </div>
+    <!-- Remove Student Modal -->
+    <div v-if="showRemoveStudent" class="overlay" @click.self="showRemoveStudent = false">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>Remove Student</h3>
+          <button class="modal-close" @click="showRemoveStudent = false">×</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="removeStudentError" class="alert alert-error" style="margin-bottom:12px">
+            {{ removeStudentError }}
+          </div>
+          <p>Remove <strong>{{ studentToRemove?.firstName }} {{ studentToRemove?.lastName }}</strong> from <strong>{{ team?.name }}</strong>?</p>
+          <p class="muted" style="margin-top:8px;font-size:.875rem">They will be returned to the unassigned pool and can be reassigned to another team.</p>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-secondary" @click="showRemoveStudent = false">Cancel</button>
+          <button class="btn" style="background:#dc2626;color:#fff" :disabled="removingStudent" @click="confirmRemoveStudent">
+            {{ removingStudent ? 'Removing…' : 'Remove' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Remove Instructor Modal -->
     <div v-if="showRemoveInstructor" class="overlay" @click.self="showRemoveInstructor = false">
       <div class="modal">

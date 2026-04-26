@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/peer-evaluations")
@@ -41,6 +42,14 @@ public class PeerEvaluationController {
     public Result findById(@PathVariable Long id) {
         PeerEvaluationResponse response = peerEvaluationService.findById(id);
         return new Result(true, StatusCode.SUCCESS, "Peer evaluation retrieved successfully", response);
+    }
+
+    @GetMapping("/evaluators/{evaluatorId}")
+    public Result getByEvaluatorAndWeek(
+            @PathVariable Long evaluatorId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart) {
+        List<PeerEvaluationResponse> evals = peerEvaluationService.findByEvaluatorAndWeek(evaluatorId, weekStart);
+        return new Result(true, StatusCode.SUCCESS, "Peer evaluations retrieved", evals);
     }
 
     @GetMapping("/students/{studentId}/report")

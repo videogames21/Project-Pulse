@@ -11,6 +11,9 @@ import edu.tcu.cs.projectpulse.peerevaluation.dto.StudentEvaluationSummary;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.StudentPeerEvalRangeReportResponse;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.StudentPeerEvaluationReportResponse;
 import edu.tcu.cs.projectpulse.peerevaluation.dto.WeeklyPeerEvalSummary;
+import edu.tcu.cs.projectpulse.rubric.CriterionEntity;
+import edu.tcu.cs.projectpulse.rubric.CriterionRepository;
+import edu.tcu.cs.projectpulse.rubric.RubricRepository;
 import edu.tcu.cs.projectpulse.section.SectionNotFoundException;
 import edu.tcu.cs.projectpulse.section.SectionRepository;
 import edu.tcu.cs.projectpulse.team.TeamRepository;
@@ -38,15 +41,21 @@ public class PeerEvaluationService {
     private final UserRepository userRepository;
     private final TeamRepository teamRepository;
     private final SectionRepository sectionRepository;
+    private final CriterionRepository criterionRepository;
+    private final RubricRepository rubricRepository;
 
     public PeerEvaluationService(PeerEvaluationRepository peerEvaluationRepository,
                                   UserRepository userRepository,
                                   TeamRepository teamRepository,
-                                  SectionRepository sectionRepository) {
+                                  SectionRepository sectionRepository,
+                                  CriterionRepository criterionRepository,
+                                  RubricRepository rubricRepository) {
         this.peerEvaluationRepository = peerEvaluationRepository;
         this.userRepository = userRepository;
         this.teamRepository = teamRepository;
         this.sectionRepository = sectionRepository;
+        this.criterionRepository = criterionRepository;
+        this.rubricRepository = rubricRepository;
     }
 
     @Transactional
@@ -95,6 +104,16 @@ public class PeerEvaluationService {
     public PeerEvaluationResponse findById(Long id) {
         return toResponse(peerEvaluationRepository.findById(id)
                 .orElseThrow(() -> new PeerEvaluationNotFoundException(id)));
+    }
+
+    // ── UC-28: Fetch evaluations already submitted by an evaluator for a week ──
+
+    public List<PeerEvaluationResponse> findByEvaluatorAndWeek(Long evaluatorId, LocalDate weekStart) {
+        validateWeekStart(weekStart);
+        return peerEvaluationRepository.findAllByEvaluatorIdAndWeekStart(evaluatorId, weekStart)
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     // ── Report helpers (used by report endpoints) ────────────────────────────
@@ -149,7 +168,10 @@ public class PeerEvaluationService {
                             .map(BigDecimal::valueOf)
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
                     BigDecimal avg = sum.divide(BigDecimal.valueOf(entry.getValue().size()), 2, RoundingMode.HALF_UP);
-                    return new CriterionAverageScoreResponse(entry.getKey(), avg);
+                    String name = criterionRepository.findById(entry.getKey())
+                            .map(c -> c.getName())
+                            .orElse("Criterion " + entry.getKey());
+                    return new CriterionAverageScoreResponse(entry.getKey(), name, avg);
                 })
                 .toList();
 
@@ -174,12 +196,22 @@ public class PeerEvaluationService {
 
     // ── UC-31: Section report ────────────────────────────────────────────────
 
+    @Transactional(readOnly = true)
     public SectionPeerEvaluationReportResponse getSectionReport(String sectionName, LocalDate weekStart) {
         validateWeekStart(weekStart);
 
         if (!sectionRepository.existsByName(sectionName)) {
             throw new SectionNotFoundException(sectionName);
         }
+
+        // Compute max possible grade from the section's rubric (sum of all criterion maxScores)
+        BigDecimal maxGrade = sectionRepository.findByName(sectionName)
+                .filter(s -> s.getRubricId() != null)
+                .flatMap(s -> rubricRepository.findById(s.getRubricId()))
+                .map(rubric -> rubric.getCriteria().stream()
+                        .map(CriterionEntity::getMaxScore)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add))
+                .orElse(BigDecimal.ZERO);
 
         // Collect all students in the section, sorted by last name
         List<UserEntity> students = teamRepository.findAllBySectionNameOrderByNameAsc(sectionName)
@@ -192,7 +224,7 @@ public class PeerEvaluationService {
                 .map(student -> buildStudentSummary(student, weekStart))
                 .toList();
 
-        return new SectionPeerEvaluationReportResponse(sectionName, weekStart, summaries);
+        return new SectionPeerEvaluationReportResponse(sectionName, weekStart, maxGrade, summaries);
     }
 
     private StudentEvaluationSummary buildStudentSummary(UserEntity student, LocalDate weekStart) {

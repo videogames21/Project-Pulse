@@ -122,7 +122,7 @@ onMounted(fetchReport)
           style="margin-bottom:14px"
         >
           <div class="flex justify-between items-center" style="margin-bottom:4px">
-            <span style="font-weight:600">Criterion {{ c.criterionId }}</span>
+            <span style="font-weight:600">{{ c.criterionName }}</span>
             <span style="font-weight:700;color:var(--purple)">
               {{ Number(c.averageScore).toFixed(2) }}/{{ SCORE_MAX_PER_CRITERION }}
             </span>
