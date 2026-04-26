@@ -155,6 +155,12 @@ public class GlobalExceptionHandler {
         return new Result(false, StatusCode.UNAUTHORIZED, "Invalid email or password.");
     }
 
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public Result handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
+        return new Result(false, StatusCode.FORBIDDEN, ex.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Result handleGeneric(Exception ex) {

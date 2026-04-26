@@ -21,6 +21,12 @@ public class WAREntity {
     @Column(name = "week_start", nullable = false)
     private LocalDate weekStart;
 
+    @Column(name = "team_id")
+    private Long teamId;
+
+    @Column(name = "section_name")
+    private String sectionName;
+
     @OneToMany(mappedBy = "war", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<WARActivityEntity> activities = new ArrayList<>();
 
@@ -32,6 +38,12 @@ public class WAREntity {
 
     public LocalDate getWeekStart() { return weekStart; }
     public void setWeekStart(LocalDate weekStart) { this.weekStart = weekStart; }
+
+    public Long getTeamId() { return teamId; }
+    public void setTeamId(Long teamId) { this.teamId = teamId; }
+
+    public String getSectionName() { return sectionName; }
+    public void setSectionName(String sectionName) { this.sectionName = sectionName; }
 
     public List<WARActivityEntity> getActivities() { return activities; }
     public void setActivities(List<WARActivityEntity> activities) { this.activities = activities; }

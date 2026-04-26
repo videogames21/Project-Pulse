@@ -31,6 +31,7 @@ const NAV = {
   instructor: [
     { path: '/section-report', label: 'Section Peer Eval Report', icon: '📊' },
     { path: '/team-war',       label: 'Team WAR Report',          icon: '📋' },
+    { path: '/students',       label: 'Students',                 icon: '👨‍🎓' },
   ],
   admin: [
     { path: '/admin/sections',      label: 'Sections',       icon: '🏛️' },
@@ -39,6 +40,7 @@ const NAV = {
     { path: '/admin/rubrics',       label: 'Rubrics',        icon: '📝' },
     { path: '/admin/invitations',   label: 'Invitations',    icon: '✉️' },
     { path: '/admin/assign-students', label: 'Assign Students', icon: '🎓' },
+    { path: '/admin/students',        label: 'Students',        icon: '👨‍🎓' },
   ],
 }
 

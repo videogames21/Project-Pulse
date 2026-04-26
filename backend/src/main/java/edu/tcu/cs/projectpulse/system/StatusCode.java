@@ -8,6 +8,7 @@ public class StatusCode {
     public static final int CONFLICT = 409;
     public static final int UNAUTHORIZED = 401;
     public static final int GONE = 410;
+    public static final int FORBIDDEN = 403;
 
     private StatusCode() {}
 }

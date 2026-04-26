@@ -1,6 +1,6 @@
 const BASE = 'http://localhost:8080'
 
-async function request(method, path, body, params) {
+async function request(method, path, body, params, options = {}) {
   let url = `${BASE}${path}`
   if (params && Object.keys(params).length > 0) {
     url += '?' + new URLSearchParams(params).toString()
@@ -16,16 +16,17 @@ async function request(method, path, body, params) {
     body: body ? JSON.stringify(body) : undefined,
   })
 
-  const json = await res.json()
+  const text = await res.text()
+  const json = text ? JSON.parse(text) : null
 
   if (!res.ok) {
-    if (res.status === 401 && token && path !== '/api/v1/users/me/password') {
+    if (res.status === 401 && token && !options.skipAutoLogout && path !== '/api/v1/users/me/password') {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/login'
       return
     }
-    const err = new Error(json.message ?? `${method} ${path} → ${res.status}`)
+    const err = new Error(json?.message ?? `${method} ${path} → ${res.status}`)
     err.status = res.status
     err.data = json
     throw err
@@ -39,5 +40,5 @@ export const api = {
   post:   (path, body)   => request('POST',   path, body),
   put:    (path, body)   => request('PUT',    path, body),
   patch:  (path, body)   => request('PATCH',  path, body),
-  delete: (path)         => request('DELETE', path),
+  delete: (path, body, options) => request('DELETE', path, body, null, options),
 }
