@@ -25,4 +25,8 @@ public interface PeerEvaluationRepository extends JpaRepository<PeerEvaluationEn
             Long evaluatorId, Long evaluateeId, LocalDate weekStart);
 
     boolean existsByEvaluatorIdAndWeekStart(Long evaluatorId, LocalDate weekStart);
+
+    List<PeerEvaluationEntity> findAllByEvaluateeId(Long evaluateeId);
+
+    List<PeerEvaluationEntity> findAllByEvaluatorId(Long evaluatorId);
 }

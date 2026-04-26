@@ -98,6 +98,7 @@ onMounted(fetchTeams)
         <table>
           <thead>
             <tr>
+              <th>ID</th>
               <th>Name</th>
               <th>Description</th>
               <th>Section</th>
@@ -107,12 +108,13 @@ onMounted(fetchTeams)
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="5" class="empty">Loading...</td>
+              <td colspan="6" class="empty">Loading...</td>
             </tr>
             <tr v-else-if="teams.length === 0">
-              <td colspan="5" class="empty">No teams found.</td>
+              <td colspan="6" class="empty">No teams found.</td>
             </tr>
             <tr v-for="t in teams" :key="t.id">
+              <td class="muted">{{ t.id }}</td>
               <td><strong>{{ t.name }}</strong></td>
               <td class="muted">{{ t.description ?? '—' }}</td>
               <td>{{ t.sectionName }}</td>

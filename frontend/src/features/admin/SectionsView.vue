@@ -57,6 +57,7 @@ onMounted(fetchSections)
         <table>
           <thead>
             <tr>
+              <th>ID</th>
               <th>Section Name</th>
               <th>Start Date</th>
               <th>End Date</th>
@@ -70,6 +71,7 @@ onMounted(fetchSections)
               style="cursor:pointer"
               @click="router.push(`/admin/sections/${s.id}`)"
             >
+              <td class="muted">{{ s.id }}</td>
               <td><strong>{{ s.sectionName }}</strong></td>
               <td>{{ s.startDate ?? '—' }}</td>
               <td>{{ s.endDate ?? '—' }}</td>

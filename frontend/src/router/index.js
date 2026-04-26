@@ -21,6 +21,8 @@ import RubricsView        from '../features/admin/RubricsView.vue'
 import InvitationsView    from '../features/admin/InvitationsView.vue'
 import AssignStudentsView      from '../features/admin/AssignStudentsView.vue'
 import ManageActiveWeeksView  from '../features/admin/ManageActiveWeeksView.vue'
+import StudentsView           from '../features/admin/StudentsView.vue'
+import StudentDetailView      from '../features/admin/StudentDetailView.vue'
 
 const routes = [
   { path: '/',                  redirect: '/login' },
@@ -37,6 +39,8 @@ const routes = [
   // Instructor
   { path: '/section-report',    component: SectionReportView, meta: { role: 'instructor' } },
   { path: '/team-war',          component: TeamWARView,        meta: { role: 'instructor' } },
+  { path: '/students',          component: StudentsView,       meta: { role: 'instructor' } },
+  { path: '/students/:id',      component: StudentDetailView,  meta: { role: 'instructor' } },
 
   // Admin
   { path: '/admin/instructors',         component: InstructorsView,      meta: { role: 'admin' } },
@@ -51,6 +55,8 @@ const routes = [
   { path: '/admin/invitations',      component: InvitationsView,    meta: { role: 'admin' } },
   { path: '/admin/assign-students',           component: AssignStudentsView,     meta: { role: 'admin' } },
   { path: '/admin/sections/:id/active-weeks', component: ManageActiveWeeksView,  meta: { role: 'admin' } },
+  { path: '/admin/students',                  component: StudentsView,           meta: { role: 'admin' } },
+  { path: '/admin/students/:id',              component: StudentDetailView,      meta: { role: 'admin' } },
 ]
 
 const router = createRouter({
