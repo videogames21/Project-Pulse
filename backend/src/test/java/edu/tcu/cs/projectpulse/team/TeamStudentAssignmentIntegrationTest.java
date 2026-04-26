@@ -1,6 +1,7 @@
 package edu.tcu.cs.projectpulse.team;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.tcu.cs.projectpulse.section.SectionRepository;
 import edu.tcu.cs.projectpulse.user.UserEntity;
 import edu.tcu.cs.projectpulse.user.UserRepository;
 import edu.tcu.cs.projectpulse.user.UserRole;
@@ -37,6 +38,9 @@ class TeamStudentAssignmentIntegrationTest {
     @Autowired
     UserRepository userRepository;
 
+    @Autowired
+    SectionRepository sectionRepository;
+
     ObjectMapper objectMapper = new ObjectMapper();
 
     MockMvc mockMvc;
@@ -51,6 +55,9 @@ class TeamStudentAssignmentIntegrationTest {
         // is created for subsequent test classes.
         userRepository.deleteAll();
         teamRepository.deleteAll();
+        // Delete sections so sectionRepository.findByName() returns empty → teamSectionId is null
+        // → section validation in assignStudents() is skipped for these focused unit-style tests.
+        sectionRepository.deleteAll();
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

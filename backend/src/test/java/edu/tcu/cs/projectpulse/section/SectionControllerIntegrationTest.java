@@ -97,12 +97,17 @@ class SectionControllerIntegrationTest {
     }
 
     private Long createStudent(String fullName, String email) {
+        return createStudentInSection(fullName, email, null);
+    }
+
+    private Long createStudentInSection(String fullName, String email, Long sectionId) {
         String[] parts = fullName.split(" ", 2);
         UserEntity u = new UserEntity();
         u.setFirstName(parts[0]);
         u.setLastName(parts.length > 1 ? parts[1] : "");
         u.setEmail(email);
         u.setRole(UserRole.STUDENT);
+        u.setSectionId(sectionId);
         return userRepository.save(u).getId();
     }
 
@@ -791,8 +796,8 @@ class SectionControllerIntegrationTest {
     void findSectionById_teamWithAssignedStudents_studentsListedInTeamSummary() throws Exception {
         SectionEntity saved    = createSection("2025-2026");
         Long teamId            = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long aliceId           = createStudent("Test Student A", "alice@tcu.edu");
-        Long bobId             = createStudent("Bob Smith",  "bob@tcu.edu");
+        Long aliceId           = createStudentInSection("Test Student A", "alice@tcu.edu", saved.getId());
+        Long bobId             = createStudentInSection("Bob Smith",  "bob@tcu.edu", saved.getId());
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -827,8 +832,8 @@ class SectionControllerIntegrationTest {
     void findSectionById_teamMembersSortedAlphabetically() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         Long teamId         = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long zoeId          = createStudent("Zoe Adams",  "zoe@tcu.edu");
-        Long aliceId        = createStudent("Test Student A", "alice@tcu.edu");
+        Long zoeId          = createStudentInSection("Zoe Adams",  "zoe@tcu.edu", saved.getId());
+        Long aliceId        = createStudentInSection("Test Student A", "alice@tcu.edu", saved.getId());
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -846,8 +851,8 @@ class SectionControllerIntegrationTest {
         SectionEntity saved  = createSection("2025-2026");
         Long teamAlphaId     = createTeamAndReturnId("Team Alpha", "2025-2026");
         Long teamBetaId      = createTeamAndReturnId("Team Beta",  "2025-2026");
-        Long aliceId         = createStudent("Test Student A", "alice@tcu.edu");
-        Long bobId           = createStudent("Bob Smith",  "bob@tcu.edu");
+        Long aliceId         = createStudentInSection("Test Student A", "alice@tcu.edu", saved.getId());
+        Long bobId           = createStudentInSection("Bob Smith",  "bob@tcu.edu", saved.getId());
 
         mockMvc.perform(post("/api/v1/teams/" + teamAlphaId + "/students")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -1103,8 +1108,8 @@ class SectionControllerIntegrationTest {
     void findSectionById_assignedStudentNotInStudentsNotOnTeam() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         Long teamId  = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
-        createStudent("Bob Smith", "bob@tcu.edu");
+        Long aliceId = createStudentInSection("Test Student A", "alice@tcu.edu", saved.getId());
+        createStudentInSection("Bob Smith", "bob@tcu.edu", saved.getId());
 
         // Assign Alice via the UC-12 endpoint
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
@@ -1122,8 +1127,8 @@ class SectionControllerIntegrationTest {
     void findSectionById_allStudentsAssigned_studentsNotOnTeamIsEmpty() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         Long teamId  = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
-        Long bobId   = createStudent("Bob Smith",  "bob@tcu.edu");
+        Long aliceId = createStudentInSection("Test Student A", "alice@tcu.edu", saved.getId());
+        Long bobId   = createStudentInSection("Bob Smith",  "bob@tcu.edu", saved.getId());
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -1139,7 +1144,7 @@ class SectionControllerIntegrationTest {
     void findSectionById_removedStudentReturnsToStudentsNotOnTeam() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         Long teamId  = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
+        Long aliceId = createStudentInSection("Test Student A", "alice@tcu.edu", saved.getId());
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -1242,8 +1247,8 @@ class SectionControllerIntegrationTest {
     void findSectionById_teamDeletedWithStudents_studentsReturnToStudentsNotOnTeam() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         Long teamId  = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long aliceId = createStudent("Test Student A", "alice@tcu.edu");
-        Long bobId   = createStudent("Bob Smith",  "bob@tcu.edu");
+        Long aliceId = createStudentInSection("Test Student A", "alice@tcu.edu", saved.getId());
+        Long bobId   = createStudentInSection("Bob Smith",  "bob@tcu.edu", saved.getId());
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -1316,7 +1321,7 @@ class SectionControllerIntegrationTest {
     void findSectionById_instructorAndStudentOnSameTeam_listedInCorrectColumns() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         Long teamId         = createTeamAndReturnId("Team Alpha", "2025-2026");
-        Long aliceId        = createStudent("Test Student A", "alice@tcu.edu");
+        Long aliceId        = createStudentInSection("Test Student A", "alice@tcu.edu", saved.getId());
         Long drSmithId      = createInstructor("Dr. Smith", "smith@tcu.edu");
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")

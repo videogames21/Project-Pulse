@@ -3,6 +3,8 @@ package edu.tcu.cs.projectpulse.auth;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.tcu.cs.projectpulse.TestJwtHelper;
 import edu.tcu.cs.projectpulse.invitation.InvitationRepository;
+import edu.tcu.cs.projectpulse.section.SectionEntity;
+import edu.tcu.cs.projectpulse.section.SectionRepository;
 import edu.tcu.cs.projectpulse.user.UserEntity;
 import edu.tcu.cs.projectpulse.user.UserRepository;
 import edu.tcu.cs.projectpulse.user.UserRole;
@@ -32,10 +34,12 @@ class AuthControllerIntegrationTest {
     @Autowired WebApplicationContext wac;
     @Autowired InvitationRepository invitationRepository;
     @Autowired UserRepository userRepository;
+    @Autowired SectionRepository sectionRepository;
     @Autowired TestJwtHelper jwtHelper;
 
     ObjectMapper objectMapper = new ObjectMapper();
     MockMvc mockMvc;
+    Long testSectionId;
 
     @BeforeEach
     void setUp() {
@@ -45,6 +49,11 @@ class AuthControllerIntegrationTest {
 
         invitationRepository.deleteAll();
         userRepository.deleteAll();
+        sectionRepository.deleteAll();
+
+        SectionEntity testSection = new SectionEntity();
+        testSection.setName("TEST_SECTION");
+        testSectionId = sectionRepository.save(testSection).getId();
 
         UserEntity admin = new UserEntity();
         admin.setFirstName("Admin"); admin.setLastName("User"); admin.setEmail("admin@tcu.edu");
@@ -72,7 +81,9 @@ class AuthControllerIntegrationTest {
 
     private String createInvitationToken() throws Exception {
         String response = mockMvc.perform(post("/api/v1/invitations")
-                        .header("Authorization", jwtHelper.adminToken()))
+                        .header("Authorization", jwtHelper.adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sectionId\":" + testSectionId + "}"))
                 .andReturn().getResponse().getContentAsString();
         String link = objectMapper.readTree(response).path("data").path("registrationLink").asText();
         return link.substring(link.lastIndexOf('/') + 1);
