@@ -38,7 +38,7 @@ const routes = [
 
   // Instructor
   { path: '/section-report',    component: SectionReportView, meta: { role: 'instructor' } },
-  { path: '/team-war',          component: TeamWARView,        meta: { role: 'instructor' } },
+  { path: '/team-war',          component: TeamWARView,        meta: { roles: ['instructor', 'student'] } },
   { path: '/students',          component: StudentsView,       meta: { role: 'instructor' } },
   { path: '/students/:id',      component: StudentDetailView,  meta: { role: 'instructor' } },
 
@@ -67,7 +67,8 @@ const router = createRouter({
 router.beforeEach((to) => {
   const auth = useAuthStore()
   if (!to.meta.public && !auth.user) return '/login'
-  if (to.meta.role && auth.user?.role !== to.meta.role) {
+  const allowed = to.meta.roles ?? (to.meta.role ? [to.meta.role] : null)
+  if (allowed && !allowed.includes(auth.user?.role)) {
     return defaultRoute(auth.user?.role)
   }
 })

@@ -5,7 +5,8 @@ import { useAuthStore } from '../../stores/auth'
 import { teamsApi } from '../../api/teams.js'
 import { warsApi } from '../../api/wars.js'
 
-const auth = useAuthStore()
+const auth      = useAuthStore()
+const isStudent = computed(() => auth.user?.role === 'student')
 
 // ── Week selection ─────────────────────────────────────────────────────────────
 
@@ -73,45 +74,74 @@ async function fetchReport() {
 watch([selectedTeamId, selectedWeek], fetchReport)
 
 onMounted(async () => {
-  await loadTeams()
+  if (isStudent.value) {
+    // Students only see their own team — skip the full teams list
+    selectedTeamId.value = auth.user?.teamId ?? null
+    if (auth.user?.teamId) {
+      teams.value = [{ id: auth.user.teamId, name: auth.user.team ?? 'My Team' }]
+    }
+  } else {
+    await loadTeams()
+  }
   await fetchReport()
 })
 
-// ── Per-row helpers ────────────────────────────────────────────────────────────
+// ── Derived data ───────────────────────────────────────────────────────────────
 
-function sumHours(activities, field) {
-  return activities.reduce((acc, a) => acc + Number(a[field] ?? 0), 0)
-}
+const studentSummaries = computed(() => report.value?.students ?? [])
+const submitted        = computed(() => studentSummaries.value.filter(s => s.didSubmit))
+const nonSubmitters    = computed(() => studentSummaries.value.filter(s => !s.didSubmit))
 
-// Enrich each student row with pre-computed planned/actual totals
-const rows = computed(() =>
-  (report.value?.students ?? []).map(s => ({
-    ...s,
-    planned: sumHours(s.activities, 'plannedHours'),
-    actual:  sumHours(s.activities, 'actualHours'),
-  }))
+const totalPlanned = computed(() =>
+  studentSummaries.value
+    .flatMap(s => s.activities)
+    .reduce((acc, a) => acc + Number(a.plannedHours ?? 0), 0)
+    .toFixed(1)
+)
+const totalActual = computed(() =>
+  studentSummaries.value
+    .flatMap(s => s.activities)
+    .reduce((acc, a) => acc + Number(a.actualHours ?? 0), 0)
+    .toFixed(1)
 )
 
-const submitted     = computed(() => rows.value.filter(r => r.didSubmit))
-const nonSubmitters = computed(() => rows.value.filter(r => !r.didSubmit))
-
-const totalPlanned = computed(() => submitted.value.reduce((s, r) => s + r.planned, 0).toFixed(1))
-const totalActual  = computed(() => submitted.value.reduce((s, r) => s + r.actual,  0).toFixed(1))
-
-function varianceColor(diff) {
-  return diff > 0 ? 'var(--red)' : diff < 0 ? 'var(--blue)' : 'var(--green)'
-}
-
-function varianceLabel(diff) {
-  return (diff > 0 ? '+' : '') + diff.toFixed(1) + 'h'
-}
+// Flatten to per-activity rows; show student name only on their first row
+const activityRows = computed(() => {
+  const result = []
+  for (const s of studentSummaries.value) {
+    if (s.activities.length === 0) {
+      result.push({
+        key: `${s.studentId}-empty`,
+        studentName: s.studentName,
+        isFirst: true,
+        noActivities: true,
+      })
+    } else {
+      s.activities.forEach((a, i) => {
+        result.push({
+          key: `${s.studentId}-${a.id}`,
+          studentName: s.studentName,
+          isFirst: i === 0,
+          noActivities: false,
+          category: a.category,
+          description: a.description,
+          plannedHours: a.plannedHours,
+          actualHours: a.actualHours,
+          status: a.status,
+        })
+      })
+    }
+  }
+  return result
+})
 </script>
 
 <template>
   <AppLayout>
     <!-- Controls -->
     <div class="flex items-center gap-3 mb-4" style="flex-wrap:wrap">
-      <div class="flex items-center gap-2">
+      <!-- Team picker — instructors only; students are locked to their own team -->
+      <div v-if="!isStudent" class="flex items-center gap-2">
         <label style="margin:0;font-weight:600">Team:</label>
         <select v-model="selectedTeamId" style="width:auto;padding:6px 10px" :disabled="teamsLoading">
           <option v-if="teamsLoading" :value="null">Loading…</option>
@@ -152,7 +182,7 @@ function varianceLabel(diff) {
       <!-- Summary stats -->
       <div class="stats">
         <div class="stat">
-          <div class="stat-val">{{ rows.length }}</div>
+          <div class="stat-val">{{ studentSummaries.length }}</div>
           <div class="stat-lbl">Members</div>
         </div>
         <div class="stat">
@@ -177,38 +207,43 @@ function varianceLabel(diff) {
       </div>
 
       <!-- No members in team -->
-      <div v-if="rows.length === 0" class="alert alert-info">
+      <div v-if="studentSummaries.length === 0" class="alert alert-info">
         No students are assigned to this team.
       </div>
 
-      <!-- Student table -->
+      <!-- Per-activity table (UC-32) -->
       <div v-else class="card" style="padding:0;overflow:hidden">
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
                 <th>Student</th>
-                <th>Submitted</th>
-                <th>Activities</th>
+                <th>Category</th>
+                <th>Description</th>
                 <th>Planned</th>
                 <th>Actual</th>
-                <th>Variance</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="r in rows" :key="r.studentId">
-                <td><strong>{{ r.studentName }}</strong></td>
+              <tr v-for="row in activityRows" :key="row.key">
                 <td>
-                  <span :class="['badge', r.didSubmit ? 'badge-green' : 'badge-orange']">
-                    {{ r.didSubmit ? 'Yes' : 'No' }}
-                  </span>
+                  <strong v-if="row.isFirst">{{ row.studentName }}</strong>
                 </td>
-                <td>{{ r.activities.length }}</td>
-                <td>{{ r.planned.toFixed(1) }}h</td>
-                <td>{{ r.actual.toFixed(1) }}h</td>
-                <td :style="`font-weight:600;color:${varianceColor(r.actual - r.planned)}`">
-                  {{ varianceLabel(r.actual - r.planned) }}
-                </td>
+                <template v-if="row.noActivities">
+                  <td colspan="5" class="muted" style="font-style:italic">No activities submitted.</td>
+                </template>
+                <template v-else>
+                  <td>{{ row.category }}</td>
+                  <td>{{ row.description }}</td>
+                  <td>{{ row.plannedHours != null ? Number(row.plannedHours).toFixed(1) + 'h' : '—' }}</td>
+                  <td>{{ row.actualHours  != null ? Number(row.actualHours).toFixed(1)  + 'h' : '—' }}</td>
+                  <td>
+                    <span
+                      :class="['badge', row.status === 'DONE' ? 'badge-green' : row.status === 'IN_PROGRESS' ? 'badge-purple' : 'badge-orange']"
+                    >{{ row.status }}</span>
+                  </td>
+                </template>
               </tr>
             </tbody>
           </table>

@@ -1,5 +1,8 @@
 package edu.tcu.cs.projectpulse.section;
 
+import edu.tcu.cs.projectpulse.rubric.RubricEntity;
+import edu.tcu.cs.projectpulse.rubric.dto.CriterionResponse;
+import edu.tcu.cs.projectpulse.rubric.dto.RubricResponse;
 import edu.tcu.cs.projectpulse.section.dto.SectionDetailResponse;
 import edu.tcu.cs.projectpulse.section.dto.SectionRequest;
 import edu.tcu.cs.projectpulse.section.dto.SectionResponse;
@@ -50,5 +53,15 @@ public class SectionController {
     public Result delete(@PathVariable Long id) {
         sectionService.delete(id);
         return new Result(true, StatusCode.SUCCESS, "Section deleted successfully", null);
+    }
+
+    @GetMapping("/name/{sectionName}/rubric")
+    public Result getRubricForSection(@PathVariable String sectionName) {
+        RubricEntity rubric = sectionService.getRubricForSection(sectionName);
+        List<CriterionResponse> criteria = rubric.getCriteria().stream()
+                .map(c -> new CriterionResponse(c.getId(), c.getName(), c.getDescription(), c.getMaxScore()))
+                .toList();
+        return new Result(true, StatusCode.SUCCESS, "Rubric retrieved",
+                new RubricResponse(rubric.getId(), rubric.getName(), criteria));
     }
 }

@@ -18,4 +18,7 @@ export const peerEvaluationsApi = {
 
   getStudentRangeReport: (studentId, startWeek, endWeek) =>
     api.get(`/api/v1/peer-evaluations/students/${studentId}/report/range`, { startWeek, endWeek }),
+
+  getByEvaluator: (evaluatorId, weekStart) =>
+    api.get(`/api/v1/peer-evaluations/evaluators/${evaluatorId}`, { weekStart }),
 }

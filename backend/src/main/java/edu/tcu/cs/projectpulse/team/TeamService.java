@@ -1,5 +1,6 @@
 package edu.tcu.cs.projectpulse.team;
 
+import edu.tcu.cs.projectpulse.notification.NotificationService;
 import edu.tcu.cs.projectpulse.section.SectionEntity;
 import edu.tcu.cs.projectpulse.section.SectionRepository;
 import edu.tcu.cs.projectpulse.user.UserEntity;
@@ -20,12 +21,16 @@ public class TeamService {
     private final TeamRepository teamRepository;
     private final UserRepository userRepository;
     private final SectionRepository sectionRepository;
+    private final NotificationService notificationService;
 
-    public TeamService(TeamRepository teamRepository, UserRepository userRepository,
-                       SectionRepository sectionRepository) {
+    public TeamService(TeamRepository teamRepository,
+                       UserRepository userRepository,
+                       SectionRepository sectionRepository,
+                       NotificationService notificationService) {
         this.teamRepository = teamRepository;
         this.userRepository = userRepository;
         this.sectionRepository = sectionRepository;
+        this.notificationService = notificationService;
     }
 
     public TeamEntity findById(Long id) {
@@ -169,7 +174,7 @@ public class TeamService {
 
     @Transactional
     public void removeStudent(Long teamId, Long studentId) {
-        teamRepository.findById(teamId)
+        TeamEntity team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new TeamNotFoundException(teamId));
 
         UserEntity student = userRepository.findById(studentId)
@@ -185,5 +190,8 @@ public class TeamService {
 
         student.setTeamId(null);
         userRepository.save(student);
+
+        notificationService.create(studentId,
+                "You have been removed from team \"" + team.getName() + "\" by an administrator.");
     }
 }
