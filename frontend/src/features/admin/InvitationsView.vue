@@ -2,17 +2,24 @@
 import { ref, computed, onMounted } from 'vue'
 import AppLayout from '../../components/AppLayout.vue'
 import { invitationsApi } from '../../api/invitations.js'
+import { sectionsApi } from '../../api/sections.js'
 
 const invitations      = ref([])
+const sections         = ref([])
 const flash            = ref({ type: '', text: '' })
 const viewingToken     = ref(null)
 const expandedUsers    = ref(null)
 const confirmingDelete = ref(null)
 const copiedToken      = ref(null)
-const viewingCode      = ref(null)    // which instructor row's access code is shown
+const viewingCode      = ref(null)
 
 const generatingStudent    = ref(false)
 const generatingInstructor = ref(false)
+
+// Section picker modal for student link generation
+const sectionPickerModal  = ref(false)
+const selectedSectionId   = ref(null)
+const sectionPickerError  = ref('')
 
 // Modal for newly generated instructor invitation
 const newInstructorModal = ref(null)  // { link, code } or null
@@ -35,10 +42,30 @@ async function loadInvitations() {
   }
 }
 
+async function loadSections() {
+  try {
+    const res = await sectionsApi.getAll()
+    sections.value = res.data ?? []
+  } catch {
+    flash.value = { type: 'alert-warning', text: 'Failed to load sections.' }
+  }
+}
+
+function openSectionPicker() {
+  selectedSectionId.value = null
+  sectionPickerError.value = ''
+  sectionPickerModal.value = true
+}
+
 async function generateStudent() {
+  if (!selectedSectionId.value) {
+    sectionPickerError.value = 'Please select a section.'
+    return
+  }
+  sectionPickerModal.value = false
   generatingStudent.value = true
   try {
-    await invitationsApi.generate()
+    await invitationsApi.generate(selectedSectionId.value)
     await loadInvitations()
     flash.value = { type: 'alert-success', text: 'Student invitation link generated.' }
   } catch {
@@ -108,7 +135,10 @@ async function confirmDelete(token, id) {
   }
 }
 
-onMounted(loadInvitations)
+onMounted(() => {
+  loadInvitations()
+  loadSections()
+})
 </script>
 
 <template>
@@ -122,7 +152,7 @@ onMounted(loadInvitations)
     <div style="margin-bottom:32px">
       <div class="flex justify-between items-center" style="margin-bottom:12px">
         <h3 style="margin:0;font-size:1.05rem;font-weight:700;color:#4D1979">Student Links</h3>
-        <button class="btn btn-primary btn-sm" :disabled="generatingStudent" @click="generateStudent">
+        <button class="btn btn-primary btn-sm" :disabled="generatingStudent" @click="openSectionPicker">
           <template v-if="generatingStudent">Generating…</template>
           <template v-else>+ Generate Student Link</template>
         </button>
@@ -135,6 +165,7 @@ onMounted(loadInvitations)
             <thead>
               <tr>
                 <th>Link ID</th>
+                <th>Section</th>
                 <th>Full Link</th>
                 <th>Generated</th>
                 <th>Used By</th>
@@ -144,11 +175,15 @@ onMounted(loadInvitations)
             </thead>
             <tbody>
               <tr v-if="studentLinks.length === 0">
-                <td colspan="6" style="text-align:center;color:var(--text-muted)">No student links yet.</td>
+                <td colspan="7" style="text-align:center;color:var(--text-muted)">No student links yet.</td>
               </tr>
               <template v-for="inv in studentLinks" :key="inv.id">
                 <tr>
                   <td><code>{{ inv.tokenShort }}…</code></td>
+                  <td>
+                    <span v-if="inv.sectionName">{{ inv.sectionName }}</span>
+                    <span v-else class="muted">—</span>
+                  </td>
                   <td>
                     <button class="btn btn-secondary btn-sm" @click="toggleLink(inv.id)">
                       {{ viewingToken === inv.id ? 'Hide' : 'View' }}
@@ -187,7 +222,7 @@ onMounted(loadInvitations)
                   </td>
                 </tr>
                 <tr v-if="viewingToken === inv.id">
-                  <td colspan="6" style="background:var(--bg-secondary,#f8f8f8);padding:8px 16px">
+                  <td colspan="7" style="background:var(--bg-secondary,#f8f8f8);padding:8px 16px">
                     <div class="flex items-center" style="gap:8px">
                       <input type="text" :value="inv.registrationLink" readonly style="flex:1;padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;background:var(--bg)" />
                       <button class="btn btn-secondary btn-sm" @click="copyLink(inv.registrationLink, inv.id)">
@@ -197,7 +232,7 @@ onMounted(loadInvitations)
                   </td>
                 </tr>
                 <tr v-if="expandedUsers === inv.id && inv.usageCount > 0">
-                  <td colspan="6" style="background:var(--bg-secondary,#f8f8f8);padding:8px 16px">
+                  <td colspan="7" style="background:var(--bg-secondary,#f8f8f8);padding:8px 16px">
                     <ul style="margin:0;padding-left:20px;font-size:0.85rem">
                       <li v-for="u in inv.acceptedUsers" :key="u.email">
                         {{ u.name }} — <span style="color:var(--text-muted)">{{ u.email }}</span>
@@ -304,6 +339,47 @@ onMounted(loadInvitations)
               </template>
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Section Picker Modal (for student links) ────────────────────── -->
+    <div v-if="sectionPickerModal" class="overlay" @click.self="sectionPickerModal = false">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>Select Section for Student Link</h3>
+          <button class="modal-close" @click="sectionPickerModal = false">×</button>
+        </div>
+        <div class="modal-body">
+          <p style="margin-bottom:16px;font-size:.9rem;color:#5a5070">
+            Choose the section this registration link will be for. Students who register with this link will automatically be enrolled in the selected section.
+          </p>
+          <div v-if="sectionPickerError" class="alert alert-warning" style="margin-bottom:12px">
+            {{ sectionPickerError }}
+          </div>
+          <div v-if="sections.length === 0" style="color:var(--text-muted);font-size:.9rem">
+            No sections found. Create a section first.
+          </div>
+          <div v-else style="display:flex;flex-direction:column;gap:8px">
+            <label
+              v-for="sec in sections"
+              :key="sec.id"
+              style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid;border-radius:8px;cursor:pointer;transition:all .15s"
+              :style="{
+                borderColor: selectedSectionId === sec.id ? '#4D1979' : '#d8d3e3',
+                background:  selectedSectionId === sec.id ? '#f3e8ff' : '#fff',
+              }"
+            >
+              <input type="radio" :value="sec.id" v-model="selectedSectionId" style="accent-color:#4D1979" />
+              <span style="font-weight:600;color:#4D1979">{{ sec.sectionName }}</span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-secondary" @click="sectionPickerModal = false">Cancel</button>
+          <button class="btn btn-primary" :disabled="!selectedSectionId || sections.length === 0" @click="generateStudent">
+            Generate Link
+          </button>
         </div>
       </div>
     </div>

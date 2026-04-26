@@ -2,6 +2,9 @@ package edu.tcu.cs.projectpulse.invitation;
 
 import edu.tcu.cs.projectpulse.invitation.dto.AcceptedUserInfo;
 import edu.tcu.cs.projectpulse.invitation.dto.InvitationResponse;
+import edu.tcu.cs.projectpulse.section.SectionEntity;
+import edu.tcu.cs.projectpulse.section.SectionNotFoundException;
+import edu.tcu.cs.projectpulse.section.SectionRepository;
 import edu.tcu.cs.projectpulse.user.UserEntity;
 import edu.tcu.cs.projectpulse.user.UserRepository;
 import edu.tcu.cs.projectpulse.user.UserRole;
@@ -28,16 +31,21 @@ public class InvitationService {
 
     private final InvitationRepository repository;
     private final UserRepository userRepository;
+    private final SectionRepository sectionRepository;
 
     @Value("${app.base-url}")
     private String baseUrl;
 
-    public InvitationService(InvitationRepository repository, UserRepository userRepository) {
+    public InvitationService(InvitationRepository repository, UserRepository userRepository,
+                             SectionRepository sectionRepository) {
         this.repository = repository;
         this.userRepository = userRepository;
+        this.sectionRepository = sectionRepository;
     }
 
-    public InvitationResponse generateInvitation() {
+    public InvitationResponse generateInvitation(Long sectionId) {
+        SectionEntity section = sectionRepository.findById(sectionId)
+                .orElseThrow(() -> new SectionNotFoundException(sectionId));
         String invitedBy = SecurityContextHolder.getContext().getAuthentication().getName();
 
         InvitationEntity entity = new InvitationEntity();
@@ -46,6 +54,7 @@ public class InvitationService {
         entity.setCreatedAt(LocalDateTime.now());
         entity.setInvitedBy(invitedBy);
         entity.setRole(UserRole.STUDENT);
+        entity.setSectionId(section.getId());
         entity = repository.save(entity);
         return toResponse(entity);
     }
@@ -120,6 +129,12 @@ public class InvitationService {
                 .map(u -> new AcceptedUserInfo(u.getName(), u.getEmail()))
                 .toList();
 
+        String sectionName = null;
+        if (entity.getSectionId() != null) {
+            sectionName = sectionRepository.findById(entity.getSectionId())
+                    .map(SectionEntity::getName).orElse(null);
+        }
+
         InvitationResponse dto = new InvitationResponse();
         dto.setId(entity.getId());
         dto.setToken(entity.getToken());
@@ -133,6 +148,8 @@ public class InvitationService {
         dto.setAcceptedUsers(acceptedUsers);
         dto.setRole(entity.getRole() != null ? entity.getRole().name() : "STUDENT");
         dto.setAccessCode(entity.getAccessCode());
+        dto.setSectionId(entity.getSectionId());
+        dto.setSectionName(sectionName);
         return dto;
     }
 

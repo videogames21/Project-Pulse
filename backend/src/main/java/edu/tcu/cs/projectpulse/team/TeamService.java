@@ -1,5 +1,7 @@
 package edu.tcu.cs.projectpulse.team;
 
+import edu.tcu.cs.projectpulse.section.SectionEntity;
+import edu.tcu.cs.projectpulse.section.SectionRepository;
 import edu.tcu.cs.projectpulse.user.UserEntity;
 import edu.tcu.cs.projectpulse.user.UserNotFoundException;
 import edu.tcu.cs.projectpulse.user.UserRepository;
@@ -17,10 +19,13 @@ public class TeamService {
 
     private final TeamRepository teamRepository;
     private final UserRepository userRepository;
+    private final SectionRepository sectionRepository;
 
-    public TeamService(TeamRepository teamRepository, UserRepository userRepository) {
+    public TeamService(TeamRepository teamRepository, UserRepository userRepository,
+                       SectionRepository sectionRepository) {
         this.teamRepository = teamRepository;
         this.userRepository = userRepository;
+        this.sectionRepository = sectionRepository;
     }
 
     public TeamEntity findById(Long id) {
@@ -40,10 +45,20 @@ public class TeamService {
         return teamRepository.save(team);
     }
 
+    @Transactional
     public TeamEntity update(Long id, TeamRequest request) {
         TeamEntity team = findById(id);
         if (teamRepository.existsByNameAndIdNot(request.name(), id)) {
             throw new TeamNameConflictException(request.name());
+        }
+        boolean sectionChanged = !request.sectionName().equals(team.getSectionName());
+        if (sectionChanged) {
+            userRepository.findByTeamId(id).stream()
+                    .filter(u -> u.getRole() == UserRole.STUDENT)
+                    .forEach(u -> {
+                        u.setTeamId(null);
+                        userRepository.save(u);
+                    });
         }
         team.setName(request.name());
         team.setDescription(request.description());
@@ -129,6 +144,9 @@ public class TeamService {
         TeamEntity team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new TeamNotFoundException(teamId));
 
+        Long teamSectionId = sectionRepository.findByName(team.getSectionName())
+                .map(SectionEntity::getId).orElse(null);
+
         for (Long studentId : studentIds) {
             UserEntity student = userRepository.findById(studentId)
                     .orElseThrow(() -> new UserNotFoundException(studentId));
@@ -136,6 +154,12 @@ public class TeamService {
             if (student.getTeamId() != null) {
                 throw new IllegalStateException(
                         "Student " + student.getFirstName() + " " + student.getLastName() + " is already assigned to a team. Remove them first.");
+            }
+
+            if (teamSectionId != null && !teamSectionId.equals(student.getSectionId())) {
+                throw new IllegalStateException(
+                        "Student " + student.getFirstName() + " " + student.getLastName()
+                        + " is not enrolled in the section this team belongs to.");
             }
 
             student.setTeamId(team.getId());

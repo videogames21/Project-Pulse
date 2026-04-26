@@ -1,28 +1,49 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import AppLayout from '../../components/AppLayout.vue'
 import { teamsApi } from '../../api/teams.js'
 import { usersApi } from '../../api/users.js'
+import { sectionsApi } from '../../api/sections.js'
 
-const teams              = ref([])
+const sections           = ref([])
+const allTeams           = ref([])
 const unassigned         = ref([])
+const selectedSectionId  = ref(null)
 const selectedTeamId     = ref(null)
 const selectedStudentIds = ref([])
 const loading            = ref(false)
 const flash              = ref({ type: '', text: '' })
 const showConfirm        = ref(false)
 
-const selectedTeam = computed(() => teams.value.find(t => t.id === selectedTeamId.value))
+const sectionTeams = computed(() => {
+  if (!selectedSectionId.value) return []
+  const sec = sections.value.find(s => s.id === selectedSectionId.value)
+  if (!sec) return []
+  return allTeams.value.filter(t => t.sectionName === sec.sectionName)
+})
+
+const selectedTeam = computed(() => allTeams.value.find(t => t.id === selectedTeamId.value))
+
+async function loadSections() {
+  const res = await sectionsApi.getAll()
+  sections.value = res.data ?? []
+}
+
+async function loadTeams() {
+  const res = await teamsApi.getAll()
+  allTeams.value = res.data ?? []
+}
+
+async function loadUnassigned() {
+  const res = await usersApi.getUnassignedStudents(selectedSectionId.value)
+  unassigned.value = res.data ?? []
+}
 
 async function load() {
   loading.value = true
   try {
-    const [teamsRes, unassignedRes] = await Promise.all([
-      teamsApi.getAll(),
-      usersApi.getUnassignedStudents(),
-    ])
-    teams.value     = teamsRes.data     ?? []
-    unassigned.value = unassignedRes.data ?? []
+    await Promise.all([loadSections(), loadTeams()])
+    if (selectedSectionId.value) await loadUnassigned()
   } catch {
     flash.value = { type: 'alert-error', text: 'Failed to load data.' }
   } finally {
@@ -30,8 +51,21 @@ async function load() {
   }
 }
 
+watch(selectedSectionId, async (newVal) => {
+  selectedTeamId.value = null
+  selectedStudentIds.value = []
+  unassigned.value = []
+  if (newVal) {
+    try {
+      await loadUnassigned()
+    } catch {
+      showFlash('alert-error', 'Failed to load students for this section.')
+    }
+  }
+})
+
 function selectTeam(team) {
-  selectedTeamId.value     = team.id
+  selectedTeamId.value = team.id
   selectedStudentIds.value = []
 }
 
@@ -47,7 +81,7 @@ async function confirmAssign() {
     showConfirm.value        = false
     selectedStudentIds.value = []
     showFlash('alert-success', `Students assigned to ${selectedTeam.value?.name ?? 'team'}.`)
-    await load()
+    await Promise.all([loadTeams(), loadUnassigned()])
   } catch (e) {
     showConfirm.value = false
     showFlash('alert-error', e.message)
@@ -58,7 +92,7 @@ async function removeStudent(teamId, studentId, studentName) {
   try {
     await teamsApi.removeStudent(teamId, studentId)
     showFlash('alert-success', `${studentName} removed from team.`)
-    await load()
+    await Promise.all([loadTeams(), loadUnassigned()])
   } catch (e) {
     showFlash('alert-error', e.message)
   }
@@ -78,25 +112,42 @@ onMounted(load)
       {{ flash.text }}
     </div>
 
-    <p class="muted" style="margin-bottom:16px">
-      Select a team on the left, check students on the right, then click Assign.
-    </p>
+    <!-- Step 1: Section selector -->
+    <div class="card" style="padding:16px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <label style="font-weight:600;white-space:nowrap;color:#4D1979">Section:</label>
+        <select
+          v-model="selectedSectionId"
+          style="flex:1;padding:8px 12px;border:1.5px solid #d8d3e3;border-radius:8px;font-size:.9rem;max-width:320px"
+        >
+          <option :value="null" disabled>— Select a section —</option>
+          <option v-for="sec in sections" :key="sec.id" :value="sec.id">
+            {{ sec.sectionName }}
+          </option>
+        </select>
+      </div>
+    </div>
 
-    <div v-if="loading" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</div>
+    <div v-if="!selectedSectionId" style="text-align:center;padding:40px;color:var(--text-muted)">
+      Select a section above to assign students to teams.
+    </div>
+
+    <div v-else-if="loading" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</div>
 
     <div v-else style="display:flex;gap:16px;align-items:flex-start">
 
-      <!-- Left panel: teams -->
+      <!-- Left panel: teams in section -->
       <div style="flex:1;min-width:220px">
         <div class="card" style="padding:0;overflow:hidden">
-          <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-weight:600">Teams</div>
-
-          <div v-if="teams.length === 0" style="padding:16px;color:var(--text-muted);font-size:0.9rem">
-            No teams found.
+          <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-weight:600">
+            Teams in Section
           </div>
 
-          <template v-for="team in teams" :key="team.id">
-            <!-- Team header row -->
+          <div v-if="sectionTeams.length === 0" style="padding:16px;color:var(--text-muted);font-size:0.9rem">
+            No teams in this section.
+          </div>
+
+          <template v-for="team in sectionTeams" :key="team.id">
             <div
               :style="{
                 padding: '12px 16px',
@@ -118,7 +169,6 @@ onMounted(load)
                   {{ team.students?.length ?? 0 }}
                 </span>
               </div>
-              <div class="muted" style="font-size:0.8rem">{{ team.sectionName }}</div>
             </div>
 
             <!-- Expanded: current members of selected team -->
@@ -152,11 +202,11 @@ onMounted(load)
         </div>
       </div>
 
-      <!-- Right panel: unassigned students -->
+      <!-- Right panel: unassigned students in section -->
       <div style="flex:1;min-width:220px">
         <div class="card" style="padding:0;overflow:hidden">
           <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-weight:600">
-            Unassigned Students
+            Unassigned Students in Section
             <span class="muted" style="font-weight:400;font-size:0.85rem"> ({{ unassigned.length }})</span>
           </div>
 
@@ -164,7 +214,7 @@ onMounted(load)
             v-if="unassigned.length === 0"
             style="padding:24px 16px;color:var(--text-muted);font-size:0.9rem;text-align:center"
           >
-            All students have been assigned to teams.
+            All students in this section have been assigned to teams.
           </div>
 
           <label

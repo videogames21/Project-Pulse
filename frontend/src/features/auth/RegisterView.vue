@@ -103,6 +103,9 @@ async function submit() {
       <!-- Valid invite form -->
       <div v-else-if="validInvite">
         <p class="reg-sub">{{ isInstructor ? 'Set up your instructor account.' : 'Create your account to get started.' }}</p>
+        <div v-if="!isInstructor && inviteData?.sectionName" class="section-notice">
+          You are signing up for Section <strong>{{ inviteData.sectionName }}</strong>
+        </div>
 
         <div v-if="submitError" class="alert alert-warning" style="margin-bottom:14px">
           {{ submitError }}
@@ -214,4 +217,5 @@ async function submit() {
 .field-error  { font-size: .75rem; color: #c62828; margin-top: 3px; display: block; }
 .alert-warning  { background: #fff3e0; border: 1px solid #ffcc80; color: #e65100; border-radius: 8px; padding: 10px 14px; font-size: .85rem; }
 .alert-disabled { background: #f3e8ff; border: 1px solid #c084fc; color: #7c3aed; border-radius: 8px; padding: 10px 14px; font-size: .85rem; }
+.section-notice { background: #f3e8ff; border: 1.5px solid #c084fc; color: #4D1979; border-radius: 8px; padding: 10px 14px; font-size: .875rem; margin-bottom: 16px; }
 </style>

@@ -67,11 +67,11 @@ public class UserService {
                 .toList();
     }
 
-    public List<UserResponse> findUnassignedStudents() {
-        return userRepository.findByRoleAndTeamIdIsNull(UserRole.STUDENT)
-                .stream()
-                .map(this::toResponse)
-                .toList();
+    public List<UserResponse> findUnassignedStudents(Long sectionId) {
+        List<UserEntity> students = sectionId != null
+                ? userRepository.findByRoleAndTeamIdIsNullAndSectionId(UserRole.STUDENT, sectionId)
+                : userRepository.findByRoleAndTeamIdIsNull(UserRole.STUDENT);
+        return students.stream().map(this::toResponse).toList();
     }
 
     public UserProfileResponse getProfile(String email) {
@@ -83,18 +83,21 @@ public class UserService {
         String instructorName = null;
         String instructorEmail = null;
 
-        if (user.getRole() == UserRole.STUDENT && user.getTeamId() != null) {
-            TeamEntity team = teamRepository.findById(user.getTeamId()).orElse(null);
-            if (team != null) {
-                teamName = team.getName();
-                sectionName = team.getSectionName();
-
-                SectionEntity section = sectionRepository.findByName(sectionName).orElse(null);
-                if (section != null && section.getInstructorId() != null) {
-                    UserEntity instructor = userRepository.findById(section.getInstructorId()).orElse(null);
-                    if (instructor != null) {
-                        instructorName = instructor.getName();
-                        instructorEmail = instructor.getEmail();
+        if (user.getRole() == UserRole.STUDENT) {
+            if (user.getTeamId() != null) {
+                teamName = teamRepository.findById(user.getTeamId())
+                        .map(TeamEntity::getName).orElse(null);
+            }
+            if (user.getSectionId() != null) {
+                SectionEntity section = sectionRepository.findById(user.getSectionId()).orElse(null);
+                if (section != null) {
+                    sectionName = section.getName();
+                    if (section.getInstructorId() != null) {
+                        UserEntity instructor = userRepository.findById(section.getInstructorId()).orElse(null);
+                        if (instructor != null) {
+                            instructorName = instructor.getName();
+                            instructorEmail = instructor.getEmail();
+                        }
                     }
                 }
             }

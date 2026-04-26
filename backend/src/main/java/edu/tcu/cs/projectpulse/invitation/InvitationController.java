@@ -1,8 +1,10 @@
 package edu.tcu.cs.projectpulse.invitation;
 
+import edu.tcu.cs.projectpulse.invitation.dto.GenerateStudentInvitationRequest;
 import edu.tcu.cs.projectpulse.invitation.dto.InvitationResponse;
 import edu.tcu.cs.projectpulse.system.Result;
 import edu.tcu.cs.projectpulse.system.StatusCode;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,8 +22,8 @@ public class InvitationController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Result generate() {
-        InvitationResponse response = service.generateInvitation();
+    public Result generate(@Valid @RequestBody GenerateStudentInvitationRequest request) {
+        InvitationResponse response = service.generateInvitation(request.sectionId());
         return new Result(true, StatusCode.SUCCESS, "Invitation link generated.", response);
     }
 

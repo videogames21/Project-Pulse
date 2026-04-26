@@ -57,53 +57,45 @@ public class StudentService {
         UserEntity caller = loadCaller(authentication);
         boolean isAdmin = caller.getRole() == UserRole.ADMIN;
 
-        // Resolve the set of team IDs the caller is allowed to see
-        Set<Long> allowedTeamIds = null;
+        // Resolve section constraint
+        Long effectiveSectionId = null;
 
         if (!isAdmin) {
             // Instructor: force-filter to their own section only
             Optional<SectionEntity> section = sectionRepository.findByInstructorId(caller.getId());
             if (section.isEmpty()) return List.of();
-            allowedTeamIds = teamRepository
-                    .findAllBySectionNameOrderByNameAsc(section.get().getName())
-                    .stream().map(TeamEntity::getId).collect(Collectors.toSet());
+            effectiveSectionId = section.get().getId();
         } else {
             // Admin: apply optional section filter
             if (sectionId != null) {
                 Optional<SectionEntity> sec = sectionRepository.findById(sectionId);
                 if (sec.isEmpty()) return List.of();
+                effectiveSectionId = sec.get().getId();
                 sectionName = sec.get().getName();
-            }
-            if (sectionName != null && !sectionName.isBlank()) {
-                String sn = sectionName;
-                allowedTeamIds = teamRepository
-                        .findAllBySectionNameOrderByNameAsc(sn)
-                        .stream().map(TeamEntity::getId).collect(Collectors.toSet());
+            } else if (sectionName != null && !sectionName.isBlank()) {
+                Optional<SectionEntity> sec = sectionRepository.findByName(sectionName);
+                if (sec.isEmpty()) return List.of();
+                effectiveSectionId = sec.get().getId();
             }
         }
 
-        // Apply teamName filter (narrows allowedTeamIds further or sets it)
+        // Resolve teamName filter to allowed team IDs
+        Set<Long> allowedTeamIds = null;
         if (teamName != null && !teamName.isBlank()) {
             String tn = teamName.toLowerCase();
             List<TeamEntity> matchingTeams = teamRepository.findAll().stream()
                     .filter(t -> t.getName().toLowerCase().contains(tn))
                     .toList();
-            Set<Long> matchingTeamIds = matchingTeams.stream()
+            allowedTeamIds = matchingTeams.stream()
                     .map(TeamEntity::getId).collect(Collectors.toSet());
-            if (allowedTeamIds != null) {
-                matchingTeamIds.retainAll(allowedTeamIds);
-            }
-            allowedTeamIds = matchingTeamIds;
         }
-
-        // Short-circuit: no teams in scope → no students
-        if (allowedTeamIds != null && allowedTeamIds.isEmpty()) return List.of();
 
         // Build JPA specification
         Specification<UserEntity> spec = Specification.where(StudentSpec.isStudent())
                 .and(StudentSpec.hasFirstName(firstName))
                 .and(StudentSpec.hasLastName(lastName))
-                .and(StudentSpec.hasEmail(email));
+                .and(StudentSpec.hasEmail(email))
+                .and(StudentSpec.hasSectionId(effectiveSectionId));
 
         if (teamId != null) {
             if (allowedTeamIds != null && !allowedTeamIds.contains(teamId)) {
@@ -111,6 +103,7 @@ public class StudentService {
             }
             spec = spec.and(StudentSpec.hasTeamId(teamId));
         } else if (allowedTeamIds != null) {
+            if (allowedTeamIds.isEmpty()) return List.of();
             spec = spec.and(StudentSpec.teamIdIn(allowedTeamIds));
         }
 
@@ -141,17 +134,14 @@ public class StudentService {
 
         // Enrich header
         String teamName = null;
-        String sectionName = null;
-        Long sectionId = null;
         if (student.getTeamId() != null) {
-            Optional<TeamEntity> team = teamRepository.findById(student.getTeamId());
-            if (team.isPresent()) {
-                teamName = team.get().getName();
-                sectionName = team.get().getSectionName();
-                sectionId = sectionRepository.findByName(sectionName)
-                        .map(SectionEntity::getId).orElse(null);
-            }
+            teamName = teamRepository.findById(student.getTeamId())
+                    .map(TeamEntity::getName).orElse(null);
         }
+        Long sectionId = student.getSectionId();
+        String sectionName = sectionId != null
+                ? sectionRepository.findById(sectionId).map(SectionEntity::getName).orElse(null)
+                : null;
 
         String resolvedTeamName    = teamName    != null ? teamName    : "Unknown";
         String resolvedSectionName = sectionName != null ? sectionName : "Unknown";
@@ -218,27 +208,21 @@ public class StudentService {
         if (section.isEmpty()) {
             throw new AccessDeniedException("You are not authorized to view this student.");
         }
-        Set<Long> visibleTeamIds = teamRepository
-                .findAllBySectionNameOrderByNameAsc(section.get().getName())
-                .stream().map(TeamEntity::getId).collect(Collectors.toSet());
-        if (!visibleTeamIds.contains(student.getTeamId())) {
+        if (!section.get().getId().equals(student.getSectionId())) {
             throw new AccessDeniedException("You are not authorized to view this student.");
         }
     }
 
     private StudentSummaryResponse toSummary(UserEntity student) {
         String teamName = null;
-        String sectionName = null;
-        Long sectionId = null;
         if (student.getTeamId() != null) {
-            Optional<TeamEntity> team = teamRepository.findById(student.getTeamId());
-            if (team.isPresent()) {
-                teamName = team.get().getName();
-                sectionName = team.get().getSectionName();
-                sectionId = sectionRepository.findByName(sectionName)
-                        .map(SectionEntity::getId).orElse(null);
-            }
+            teamName = teamRepository.findById(student.getTeamId())
+                    .map(TeamEntity::getName).orElse(null);
         }
+        Long sectionId = student.getSectionId();
+        String sectionName = sectionId != null
+                ? sectionRepository.findById(sectionId).map(SectionEntity::getName).orElse(null)
+                : null;
         return new StudentSummaryResponse(student.getId(), student.getFirstName(),
                 student.getLastName(), student.getEmail(),
                 student.getTeamId(), teamName, sectionId, sectionName);
