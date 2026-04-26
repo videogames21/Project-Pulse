@@ -30,12 +30,6 @@ public class PeerEvaluationEntity {
     @Column(name = "private_comments", columnDefinition = "TEXT")
     private String privateComments;
 
-    @Column(name = "team_id")
-    private Long teamId;
-
-    @Column(name = "section_name")
-    private String sectionName;
-
     @OneToMany(mappedBy = "peerEvaluation", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PeerEvaluationScoreEntity> scores = new ArrayList<>();
 
@@ -56,12 +50,6 @@ public class PeerEvaluationEntity {
 
     public String getPrivateComments() { return privateComments; }
     public void setPrivateComments(String privateComments) { this.privateComments = privateComments; }
-
-    public Long getTeamId() { return teamId; }
-    public void setTeamId(Long teamId) { this.teamId = teamId; }
-
-    public String getSectionName() { return sectionName; }
-    public void setSectionName(String sectionName) { this.sectionName = sectionName; }
 
     public List<PeerEvaluationScoreEntity> getScores() { return scores; }
     public void setScores(List<PeerEvaluationScoreEntity> scores) { this.scores = scores; }

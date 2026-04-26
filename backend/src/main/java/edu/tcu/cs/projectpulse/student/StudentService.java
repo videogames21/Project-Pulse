@@ -153,18 +153,14 @@ public class StudentService {
             }
         }
 
+        String resolvedTeamName    = teamName    != null ? teamName    : "Unknown";
+        String resolvedSectionName = sectionName != null ? sectionName : "Unknown";
+
         // WARs
         List<StudentWAREntry> wars = warRepository.findAllByStudentId(id).stream()
                 .sorted(Comparator.comparing(WAREntity::getWeekStart))
-                .map(war -> {
-                    String wTeamName = war.getTeamId() != null
-                            ? teamRepository.findById(war.getTeamId())
-                                    .map(TeamEntity::getName).orElse("Unknown")
-                            : "Unknown";
-                    String wSectionName = war.getSectionName() != null ? war.getSectionName() : "Unknown";
-                    return new StudentWAREntry(war.getId(), war.getWeekStart(),
-                            war.getActivities().size(), wTeamName, wSectionName);
-                })
+                .map(war -> new StudentWAREntry(war.getId(), war.getWeekStart(),
+                        war.getActivities().size(), resolvedTeamName, resolvedSectionName))
                 .toList();
 
         // Peer evals received
@@ -175,13 +171,9 @@ public class StudentService {
                             .map(UserEntity::getName).orElse("Unknown");
                     int totalScore = eval.getScores().stream()
                             .mapToInt(s -> s.getScore() != null ? s.getScore() : 0).sum();
-                    String eTeamName = eval.getTeamId() != null
-                            ? teamRepository.findById(eval.getTeamId())
-                                    .map(TeamEntity::getName).orElse("Unknown")
-                            : "Unknown";
-                    String eSectionName = eval.getSectionName() != null ? eval.getSectionName() : "Unknown";
                     return new StudentPeerEvalEntry(eval.getId(), eval.getWeekStart(),
-                            eval.getEvaluatorId(), evaluatorName, totalScore, eTeamName, eSectionName);
+                            eval.getEvaluatorId(), evaluatorName, totalScore,
+                            resolvedTeamName, resolvedSectionName);
                 })
                 .toList();
 
@@ -202,8 +194,11 @@ public class StudentService {
             throw new IllegalArgumentException("User " + id + " is not a student.");
         }
 
-        // Delete peer evaluations (evaluator or evaluatee)
-        peerEvaluationRepository.deleteAllByEvaluatorIdOrEvaluateeId(id);
+        // Delete peer evaluations per-entity so CascadeType.ALL fires for peer_evaluation_scores
+        Set<PeerEvaluationEntity> evalsToDelete = new HashSet<>();
+        evalsToDelete.addAll(peerEvaluationRepository.findAllByEvaluatorId(id));
+        evalsToDelete.addAll(peerEvaluationRepository.findAllByEvaluateeId(id));
+        evalsToDelete.forEach(peerEvaluationRepository::delete);
 
         // Delete WARs per-entity so CascadeType.ALL fires for war_activities
         warRepository.findAllByStudentId(id).forEach(warRepository::delete);

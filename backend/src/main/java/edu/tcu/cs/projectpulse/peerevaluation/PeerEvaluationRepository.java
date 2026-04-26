@@ -28,8 +28,5 @@ public interface PeerEvaluationRepository extends JpaRepository<PeerEvaluationEn
 
     List<PeerEvaluationEntity> findAllByEvaluateeId(Long evaluateeId);
 
-    @org.springframework.data.jpa.repository.Modifying
-    @org.springframework.data.jpa.repository.Query(
-            "DELETE FROM PeerEvaluationEntity p WHERE p.evaluatorId = :id OR p.evaluateeId = :id")
-    void deleteAllByEvaluatorIdOrEvaluateeId(@org.springframework.data.repository.query.Param("id") Long id);
+    List<PeerEvaluationEntity> findAllByEvaluatorId(Long evaluatorId);
 }
