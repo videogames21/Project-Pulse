@@ -328,6 +328,9 @@ async function confirmDelete() {
           <ul style="margin-top:10px;padding-left:20px;color:var(--text-muted);font-size:0.9rem">
             <li>The team name and section will be updated immediately.</li>
             <li>Any linked data (WARs, evaluations) will remain unchanged.</li>
+            <li v-if="form.sectionName !== team.sectionName" style="color:#b45309;font-weight:600">
+              The section is changing — all students will be unassigned from this team.
+            </li>
           </ul>
         </div>
         <div class="modal-foot">

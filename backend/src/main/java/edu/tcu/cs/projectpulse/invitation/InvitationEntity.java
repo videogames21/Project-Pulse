@@ -35,6 +35,8 @@ public class InvitationEntity {
     @Column(length = 6)
     private String accessCode;
 
+    private Long sectionId;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -58,4 +60,7 @@ public class InvitationEntity {
 
     public String getAccessCode() { return accessCode; }
     public void setAccessCode(String accessCode) { this.accessCode = accessCode; }
+
+    public Long getSectionId() { return sectionId; }
+    public void setSectionId(Long sectionId) { this.sectionId = sectionId; }
 }

@@ -52,7 +52,8 @@ public class UserController {
     public Result findUsers(@RequestParam(required = false) String role,
                             @RequestParam(required = false) String name,
                             @RequestParam(required = false) Boolean unassigned,
-                            @RequestParam(required = false) String status) {
+                            @RequestParam(required = false) String status,
+                            @RequestParam(required = false) Long sectionId) {
         if ("INSTRUCTOR".equalsIgnoreCase(role)) {
             UserStatus statusFilter = null;
             if (status != null && !status.isBlank()) {
@@ -63,7 +64,7 @@ public class UserController {
             return new Result(true, StatusCode.SUCCESS, "Instructors retrieved successfully", instructors);
         }
         List<UserResponse> students = Boolean.TRUE.equals(unassigned)
-                ? userService.findUnassignedStudents()
+                ? userService.findUnassignedStudents(sectionId)
                 : userService.findStudents();
         return new Result(true, StatusCode.SUCCESS, "Students retrieved successfully", students);
     }

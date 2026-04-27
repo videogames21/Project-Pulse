@@ -68,6 +68,7 @@ public class AuthService {
             invitationRepository.save(invitation);
         } else {
             user.setRole(UserRole.STUDENT);
+            user.setSectionId(invitation.getSectionId());
         }
 
         user = userRepository.save(user);

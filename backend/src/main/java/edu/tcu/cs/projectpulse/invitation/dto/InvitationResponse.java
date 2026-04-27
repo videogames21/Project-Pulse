@@ -16,6 +16,8 @@ public class InvitationResponse {
     private List<AcceptedUserInfo> acceptedUsers;
     private String role;
     private String accessCode;
+    private Long sectionId;
+    private String sectionName;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -52,4 +54,10 @@ public class InvitationResponse {
 
     public String getAccessCode() { return accessCode; }
     public void setAccessCode(String accessCode) { this.accessCode = accessCode; }
+
+    public Long getSectionId() { return sectionId; }
+    public void setSectionId(Long sectionId) { this.sectionId = sectionId; }
+
+    public String getSectionName() { return sectionName; }
+    public void setSectionName(String sectionName) { this.sectionName = sectionName; }
 }

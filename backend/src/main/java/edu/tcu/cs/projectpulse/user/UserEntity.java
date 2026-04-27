@@ -30,6 +30,9 @@ public class UserEntity {
     // Soft FK to teams.id — nullable means unassigned
     private Long teamId;
 
+    // Soft FK to sections.id — set at registration via invitation link
+    private Long sectionId;
+
     @Column(nullable = true)
     private String password;
 
@@ -65,6 +68,9 @@ public class UserEntity {
 
     public Long getTeamId() { return teamId; }
     public void setTeamId(Long teamId) { this.teamId = teamId; }
+
+    public Long getSectionId() { return sectionId; }
+    public void setSectionId(Long sectionId) { this.sectionId = sectionId; }
 
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }

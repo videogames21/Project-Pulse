@@ -38,4 +38,9 @@ public class StudentSpec {
         return (root, query, cb) -> teamId == null ? null
                 : cb.equal(root.get("teamId"), teamId);
     }
+
+    public static Specification<UserEntity> hasSectionId(Long sectionId) {
+        return (root, query, cb) -> sectionId == null ? null
+                : cb.equal(root.get("sectionId"), sectionId);
+    }
 }

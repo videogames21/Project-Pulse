@@ -2,6 +2,7 @@ package edu.tcu.cs.projectpulse.team;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.tcu.cs.projectpulse.TestJwtHelper;
+import edu.tcu.cs.projectpulse.section.SectionRepository;
 import edu.tcu.cs.projectpulse.user.UserEntity;
 import edu.tcu.cs.projectpulse.user.UserRepository;
 import edu.tcu.cs.projectpulse.user.UserRole;
@@ -30,6 +31,7 @@ class TeamControllerIntegrationTest {
     @Autowired TeamRepository teamRepository;
     @Autowired TestJwtHelper jwtHelper;
     @Autowired UserRepository userRepository;
+    @Autowired SectionRepository sectionRepository;
 
     ObjectMapper objectMapper = new ObjectMapper();
     MockMvc mockMvc;
@@ -41,6 +43,7 @@ class TeamControllerIntegrationTest {
                 .build();
         teamRepository.deleteAll();
         userRepository.deleteAll();
+        sectionRepository.deleteAll();
 
         UserEntity admin = new UserEntity();
         admin.setFirstName("Admin"); admin.setLastName("User"); admin.setEmail("admin@tcu.edu");

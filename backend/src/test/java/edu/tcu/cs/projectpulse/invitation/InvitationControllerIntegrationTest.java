@@ -2,10 +2,13 @@ package edu.tcu.cs.projectpulse.invitation;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.tcu.cs.projectpulse.TestJwtHelper;
+import edu.tcu.cs.projectpulse.section.SectionEntity;
+import edu.tcu.cs.projectpulse.section.SectionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
@@ -21,10 +24,12 @@ class InvitationControllerIntegrationTest {
 
     @Autowired WebApplicationContext wac;
     @Autowired InvitationRepository invitationRepository;
+    @Autowired SectionRepository sectionRepository;
     @Autowired TestJwtHelper jwtHelper;
 
     ObjectMapper objectMapper = new ObjectMapper();
     MockMvc mockMvc;
+    Long testSectionId;
 
     @BeforeEach
     void setUp() {
@@ -32,13 +37,19 @@ class InvitationControllerIntegrationTest {
                 .apply(springSecurity())
                 .build();
         invitationRepository.deleteAll();
+        sectionRepository.deleteAll();
+        SectionEntity s = new SectionEntity();
+        s.setName("TEST_SECTION");
+        testSectionId = sectionRepository.save(s).getId();
     }
 
     // ── Helper ──────────────────────────────────────────────────────────────
 
     private String createInvitation() throws Exception {
         String response = mockMvc.perform(post("/api/v1/invitations")
-                        .header("Authorization", jwtHelper.adminToken()))
+                        .header("Authorization", jwtHelper.adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sectionId\":" + testSectionId + "}"))
                 .andReturn().getResponse().getContentAsString();
         String link = objectMapper.readTree(response).path("data").path("registrationLink").asText();
         return link.substring(link.lastIndexOf('/') + 1);
@@ -55,7 +66,9 @@ class InvitationControllerIntegrationTest {
     @Test
     void generateInvitation_success_returns201WithLink() throws Exception {
         mockMvc.perform(post("/api/v1/invitations")
-                        .header("Authorization", jwtHelper.adminToken()))
+                        .header("Authorization", jwtHelper.adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sectionId\":" + testSectionId + "}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.registrationLink", startsWith("http://localhost:3000/register/")))
@@ -83,7 +96,9 @@ class InvitationControllerIntegrationTest {
     @Test
     void generateInvitation_persistsToDatabase() throws Exception {
         mockMvc.perform(post("/api/v1/invitations")
-                        .header("Authorization", jwtHelper.adminToken()))
+                        .header("Authorization", jwtHelper.adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sectionId\":" + testSectionId + "}"))
                 .andExpect(status().isCreated());
 
         assertThat(invitationRepository.count()).isEqualTo(1);

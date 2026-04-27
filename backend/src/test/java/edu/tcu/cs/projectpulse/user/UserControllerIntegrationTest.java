@@ -37,6 +37,8 @@ class UserControllerIntegrationTest {
 
     ObjectMapper objectMapper = new ObjectMapper();
     MockMvc mockMvc;
+    Long cs4910Id;
+    Long cs4911Id;
 
     @BeforeEach
     void setUp() {
@@ -76,14 +78,14 @@ class UserControllerIntegrationTest {
         cs4911.setName("CS4911");
         cs4911.setStartDate(LocalDate.of(2025, 8, 25));
         cs4911.setEndDate(LocalDate.of(2026, 5, 9));
-        sectionRepository.save(cs4911);
+        cs4911Id = sectionRepository.save(cs4911).getId();
 
         SectionEntity cs4910 = new SectionEntity();
         cs4910.setName("CS4910");
         cs4910.setStartDate(LocalDate.of(2024, 8, 26));
         cs4910.setEndDate(LocalDate.of(2025, 5, 10));
         cs4910.setInstructorId(instructor.getId());
-        sectionRepository.save(cs4910);
+        cs4910Id = sectionRepository.save(cs4910).getId();
 
         // Re-seed teams needed for profile tests
         TeamEntity alpha = new TeamEntity();
@@ -103,7 +105,9 @@ class UserControllerIntegrationTest {
 
     private String createInvitationToken() throws Exception {
         String response = mockMvc.perform(post("/api/v1/invitations")
-                        .header("Authorization", jwtHelper.adminToken()))
+                        .header("Authorization", jwtHelper.adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sectionId\":" + cs4910Id + "}"))
                 .andReturn().getResponse().getContentAsString();
         String link = objectMapper.readTree(response).path("data").path("registrationLink").asText();
         return link.substring(link.lastIndexOf('/') + 1);
@@ -195,6 +199,7 @@ class UserControllerIntegrationTest {
     void getMyProfile_studentWithTeam_returnsTeamSectionAndInstructorInfo() throws Exception {
         UserEntity alice = userRepository.findByEmail("alice@tcu.edu").orElseThrow();
         alice.setTeamId(teamIdByName("Team Alpha"));
+        alice.setSectionId(cs4910Id);
         userRepository.save(alice);
 
         mockMvc.perform(get("/api/v1/users/me/profile")
@@ -210,6 +215,7 @@ class UserControllerIntegrationTest {
     void getMyProfile_studentWithTeamNoInstructor_returnsNullInstructorFields() throws Exception {
         UserEntity alice = userRepository.findByEmail("alice@tcu.edu").orElseThrow();
         alice.setTeamId(teamIdByName("Team Gamma"));
+        alice.setSectionId(cs4911Id);
         userRepository.save(alice);
 
         mockMvc.perform(get("/api/v1/users/me/profile")
