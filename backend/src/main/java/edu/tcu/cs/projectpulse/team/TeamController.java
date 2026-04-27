@@ -89,13 +89,13 @@ public class TeamController {
         List<UserResponse> students = teamService.findStudentsByTeamId(entity.getId())
                 .stream()
                 .map(u -> new UserResponse(u.getId(), u.getFirstName(), u.getLastName(),
-                        u.getEmail(), u.getRole().name(), u.getStatus().name(), u.getTeamId(), null))
+                        u.getEmail(), u.getRole().name(), u.getStatus().name(), u.getTeamId(), null, null))
                 .toList();
 
         List<UserResponse> instructors = teamService.findInstructorsByTeamId(entity.getId())
                 .stream()
                 .map(u -> new UserResponse(u.getId(), u.getFirstName(), u.getLastName(),
-                        u.getEmail(), u.getRole().name(), u.getStatus().name(), u.getTeamId(), null))
+                        u.getEmail(), u.getRole().name(), u.getStatus().name(), u.getTeamId(), null, null))
                 .toList();
 
         return new TeamResponse(

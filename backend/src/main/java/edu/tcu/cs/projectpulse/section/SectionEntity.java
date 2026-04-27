@@ -18,6 +18,7 @@ public class SectionEntity {
 
     private LocalDate endDate;
 
+    @Column(unique = true)
     private Long instructorId;
 
     @Column(name = "rubric_id")

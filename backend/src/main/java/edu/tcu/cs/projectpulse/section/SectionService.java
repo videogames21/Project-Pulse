@@ -50,6 +50,7 @@ public class SectionService {
         section.setName(request.name());
         section.setStartDate(request.startDate());
         section.setEndDate(request.endDate());
+        section.setInstructorId(request.instructorId());
 
         if (request.rubricId() != null) {
             RubricEntity original = rubricRepository.findById(request.rubricId())
@@ -99,7 +100,8 @@ public class SectionService {
                             section.getName(),
                             section.getStartDate(),
                             section.getEndDate(),
-                            teamNames
+                            teamNames,
+                            section.getInstructorId()
                     );
                 })
                 .toList();
@@ -120,6 +122,7 @@ public class SectionService {
         section.setName(newName);
         section.setStartDate(request.startDate());
         section.setEndDate(request.endDate());
+        section.setInstructorId(request.instructorId());
 
         if (!oldName.equals(newName)) {
             teamRepository.findAllBySectionNameOrderByNameAsc(oldName)
@@ -193,6 +196,7 @@ public class SectionService {
         List<String> instructorsNotOnTeam = userRepository
                 .findByRoleAndTeamIdIsNull(UserRole.INSTRUCTOR)
                 .stream()
+                .filter(u -> !u.getId().equals(section.getInstructorId()))
                 .map(u -> u.getFirstName() + " " + u.getLastName())
                 .sorted()
                 .toList();
@@ -201,6 +205,13 @@ public class SectionService {
         if (section.getRubricId() != null) {
             rubricName = rubricRepository.findById(section.getRubricId())
                     .map(r -> r.getName())
+                    .orElse(null);
+        }
+
+        String instructorName = null;
+        if (section.getInstructorId() != null) {
+            instructorName = userRepository.findById(section.getInstructorId())
+                    .map(u -> u.getFirstName() + " " + u.getLastName())
                     .orElse(null);
         }
 
@@ -213,7 +224,9 @@ public class SectionService {
                 instructorsNotOnTeam,
                 studentsNotOnTeam,
                 section.getRubricId(),
-                rubricName
+                rubricName,
+                section.getInstructorId(),
+                instructorName
         );
     }
 

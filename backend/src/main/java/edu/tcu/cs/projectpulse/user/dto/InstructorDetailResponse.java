@@ -7,7 +7,8 @@ public record InstructorDetailResponse(
         String email,
         String role,
         String status,
-        SupervisedTeam supervisedTeam
+        SupervisedTeam supervisedTeam,
+        String supervisedSectionName
 ) {
     public record SupervisedTeam(Long teamId, String teamName, String sectionName) {}
 }

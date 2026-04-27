@@ -62,7 +62,7 @@ public class StudentService {
 
         if (!isAdmin) {
             // Instructor: force-filter to their own section only
-            Optional<SectionEntity> section = sectionRepository.findByInstructorId(caller.getId());
+            Optional<SectionEntity> section = sectionRepository.findAllByInstructorId(caller.getId()).stream().findFirst();
             if (section.isEmpty()) return List.of();
             effectiveSectionId = section.get().getId();
         } else {
@@ -204,11 +204,10 @@ public class StudentService {
     }
 
     private void enforceInstructorAccess(UserEntity instructor, UserEntity student) {
-        Optional<SectionEntity> section = sectionRepository.findByInstructorId(instructor.getId());
-        if (section.isEmpty()) {
-            throw new AccessDeniedException("You are not authorized to view this student.");
-        }
-        if (!section.get().getId().equals(student.getSectionId())) {
+        boolean authorized = sectionRepository.findAllByInstructorId(instructor.getId())
+                .stream()
+                .anyMatch(s -> s.getId().equals(student.getSectionId()));
+        if (!authorized) {
             throw new AccessDeniedException("You are not authorized to view this student.");
         }
     }

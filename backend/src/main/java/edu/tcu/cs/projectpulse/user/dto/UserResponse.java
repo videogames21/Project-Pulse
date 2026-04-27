@@ -8,5 +8,6 @@ public record UserResponse(
         String role,
         String status,
         Long teamId,
-        String teamName
+        String teamName,
+        String supervisedSectionName
 ) {}

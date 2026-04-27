@@ -61,6 +61,10 @@ onMounted(async () => {
             <p>{{ section.endDate ?? '—' }}</p>
           </div>
           <div>
+            <p class="muted" style="margin-bottom:4px;font-size:.75rem;font-weight:600;text-transform:uppercase">Instructor</p>
+            <p>{{ section.instructorName ?? '—' }}</p>
+          </div>
+          <div>
             <p class="muted" style="margin-bottom:4px;font-size:.75rem;font-weight:600;text-transform:uppercase">Rubric</p>
             <p>{{ section.rubricName ?? '—' }}</p>
           </div>

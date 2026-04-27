@@ -8,5 +8,6 @@ public record SectionResponse(
         String sectionName,
         LocalDate startDate,
         LocalDate endDate,
-        List<String> teamNames
+        List<String> teamNames,
+        Long instructorId
 ) {}

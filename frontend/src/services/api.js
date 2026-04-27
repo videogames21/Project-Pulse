@@ -1,4 +1,4 @@
-const BASE = 'http://localhost:8080'
+const BASE = import.meta.env.VITE_API_BASE ?? ''
 
 async function request(method, path, body, params, options = {}) {
   let url = `${BASE}${path}`

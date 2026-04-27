@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '../../components/AppLayout.vue'
 import { sectionsApi } from '../../api/sections.js'
 import { rubricsApi } from '../../api/rubrics.js'
+import { usersApi } from '../../api/users.js'
 
 const route  = useRoute()
 const router = useRouter()
@@ -16,6 +17,14 @@ const loadError = ref('')
 // Step 1 — section details
 const form = ref({ name: '', startDate: '', endDate: '' })
 const step1Error = ref('')
+const instructors = ref([])
+const assignedInstructorIds = ref(new Set())
+const selectedInstructorId = ref(null)
+const availableInstructors = computed(() =>
+  instructors.value.filter(i =>
+    !assignedInstructorIds.value.has(i.id) || i.id === selectedInstructorId.value
+  )
+)
 
 // Step 2 — rubric selection
 const rubrics = ref([])
@@ -42,9 +51,11 @@ const criteriaTotal = computed(() =>
 // ── Lifecycle — load existing section + rubrics ───────────────────────────────
 onMounted(async () => {
   try {
-    const [sectionRes, rubricsRes] = await Promise.allSettled([
+    const [sectionRes, rubricsRes, instructorsRes, sectionsRes] = await Promise.allSettled([
       sectionsApi.getById(route.params.id),
       rubricsApi.getAll(),
+      usersApi.getInstructors(undefined, true),
+      sectionsApi.getAll(),
     ])
 
     if (sectionRes.status === 'rejected') {
@@ -67,10 +78,18 @@ onMounted(async () => {
       rubrics.value = rubricsRes.value.data ?? []
     }
 
-    // Pre-select the rubric that was previously linked (round-trip via rubricId)
-    if (s.rubricId) {
-      selectedRubricId.value = s.rubricId
+    if (instructorsRes.status === 'fulfilled') instructors.value = instructorsRes.value.data ?? []
+    if (sectionsRes.status === 'fulfilled') {
+      const ids = (sectionsRes.value.data ?? [])
+        .filter(sec => sec.id !== Number(route.params.id))
+        .map(sec => sec.instructorId)
+        .filter(id => id != null)
+      assignedInstructorIds.value = new Set(ids)
     }
+
+    // Pre-select the rubric and instructor that were previously linked
+    if (s.rubricId) selectedRubricId.value = s.rubricId
+    if (s.instructorId) selectedInstructorId.value = s.instructorId
   } finally {
     loading.value = false
   }
@@ -158,6 +177,8 @@ async function confirm() {
       startDate: form.value.startDate || null,
       endDate:   form.value.endDate   || null,
     }
+
+    if (selectedInstructorId.value !== null) payload.instructorId = selectedInstructorId.value
 
     if (selectedRubricId.value !== null) {
       payload.rubricId = selectedRubricId.value
@@ -251,9 +272,19 @@ const stepLabels = ['Details', 'Rubric', 'Criteria', 'Confirm']
             <input type="date" v-model="form.startDate" />
           </div>
 
-          <div class="form-group" style="margin-bottom:24px">
+          <div class="form-group" style="margin-bottom:16px">
             <label>End Date</label>
             <input type="date" v-model="form.endDate" />
+          </div>
+
+          <div class="form-group" style="margin-bottom:24px">
+            <label>Section Instructor</label>
+            <select v-model="selectedInstructorId">
+              <option :value="null">— No instructor assigned —</option>
+              <option v-for="i in availableInstructors" :key="i.id" :value="i.id">
+                {{ i.firstName }} {{ i.lastName }}
+              </option>
+            </select>
           </div>
 
           <div class="flex gap-2 justify-end">
@@ -443,6 +474,12 @@ const stepLabels = ['Details', 'Rubric', 'Criteria', 'Confirm']
               <div>
                 <p class="muted" style="font-size:.72rem;text-transform:uppercase;font-weight:600">End Date</p>
                 <p>{{ form.endDate || '—' }}</p>
+              </div>
+              <div>
+                <p class="muted" style="font-size:.72rem;text-transform:uppercase;font-weight:600">Instructor</p>
+                <p>{{ instructors.find(i => i.id === selectedInstructorId)
+                  ? instructors.find(i => i.id === selectedInstructorId).firstName + ' ' + instructors.find(i => i.id === selectedInstructorId).lastName
+                  : '—' }}</p>
               </div>
             </div>
           </div>
