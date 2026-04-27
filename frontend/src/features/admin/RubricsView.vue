@@ -36,7 +36,7 @@ function showFlash(text, type = 'success') {
 }
 
 // ── API calls ──────────────────────────────────────────────
-async function loadRubrics() {
+async function loadRubrics({ retry = true } = {}) {
   loading.value = true
   try {
     const res = await api.get('/api/v1/rubrics')
@@ -45,6 +45,10 @@ async function loadRubrics() {
       expanded.value = rubrics.value[0].id
     }
   } catch {
+    if (retry) {
+      await new Promise(r => setTimeout(r, 2000))
+      return loadRubrics({ retry: false })
+    }
     showFlash('Failed to load rubrics.', 'error')
   } finally {
     loading.value = false
