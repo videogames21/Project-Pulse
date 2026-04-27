@@ -1,21 +1,28 @@
 services:
-  db:
-    platform: linux/amd64
-    image: mysql:8.0
-    restart: always
-
   backend:
     platform: linux/amd64
-    image: tcuprojectpulse.azurecr.io/project-pulse-backend:latest
-    expose:
-      - "8080"
-    depends_on:
-      - db
+    image: ${ACR_NAME}.azurecr.io/project-pulse-backend:latest
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: ${AZURE_MYSQL_URL}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
+      SPRING_DATASOURCE_USERNAME: ${AZURE_MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${AZURE_MYSQL_PASSWORD}
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_H2_CONSOLE_ENABLED: "false"
+      SPRING_SQL_INIT_MODE: always
+      SPRING_SQL_INIT_DATA_LOCATIONS: classpath:data-mysql.sql
+      SPRING_JPA_OPEN_IN_VIEW: "false"
+      SPRING_MAIN_LAZY_INITIALIZATION: "true"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m"
+      SECURITY_JWT_SECRET: ${JWT_SECRET}
     restart: always
 
   frontend:
     platform: linux/amd64
-    image: tcuprojectpulse.azurecr.io/project-pulse-frontend:latest
+    image: ${ACR_NAME}.azurecr.io/project-pulse-frontend:latest
     ports:
       - "80:80"
     depends_on:
