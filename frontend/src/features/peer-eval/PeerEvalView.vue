@@ -22,6 +22,13 @@ const activeIdx    = ref(0)
 const submitting   = ref(false)
 const submitError  = ref('')
 
+function toLocalISODate(date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 // Previous Monday — the only week the backend accepts for new submissions
 function getPreviousMonday() {
   const today = new Date()
@@ -31,7 +38,7 @@ function getPreviousMonday() {
   currentMonday.setDate(today.getDate() - daysToCurrentMonday)
   const prev = new Date(currentMonday)
   prev.setDate(currentMonday.getDate() - 7)
-  return prev.toISOString().split('T')[0]
+  return toLocalISODate(prev)
 }
 
 const weekStart    = getPreviousMonday()
