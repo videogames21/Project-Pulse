@@ -174,7 +174,18 @@ async function confirmAction() {
         </div>
       </div>
 
-      <!-- Supervised Teams -->
+      <!-- Section Assignment -->
+      <div class="card" style="margin-top:16px">
+        <div class="card-header" style="padding:12px 16px">
+          <h3 style="font-size:.95rem;font-weight:700">Assigned Section</h3>
+        </div>
+        <div style="padding:16px">
+          <p v-if="!instructor.supervisedSectionName" class="muted">This instructor is not assigned to any section.</p>
+          <p v-else style="font-weight:600">{{ instructor.supervisedSectionName }}</p>
+        </div>
+      </div>
+
+      <!-- Supervised Team -->
       <div class="card" style="margin-top:16px;padding:0;overflow:hidden">
         <div class="card-header" style="padding:12px 16px">
           <h3 style="font-size:.95rem;font-weight:700">Supervised Team</h3>

@@ -62,6 +62,7 @@ onMounted(fetchInstructors)
               <th>Name</th>
               <th>Email</th>
               <th>Status</th>
+              <th>Assigned Section</th>
               <th>Assigned Team</th>
             </tr>
           </thead>
@@ -89,6 +90,10 @@ onMounted(fetchInstructors)
                 >
                   {{ i.status === 'ACTIVE' ? 'Active' : 'Deactivated' }}
                 </span>
+              </td>
+              <td>
+                <span v-if="i.supervisedSectionName">{{ i.supervisedSectionName }}</span>
+                <span v-else class="muted">—</span>
               </td>
               <td>
                 <span v-if="i.teamName">{{ i.teamName }}</span>

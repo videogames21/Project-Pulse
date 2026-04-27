@@ -105,7 +105,8 @@ public class UserService {
 
         if (user.getRole() == UserRole.INSTRUCTOR) {
             String supervisedSectionName = sectionRepository
-                    .findByInstructorId(user.getId())
+                    .findAllByInstructorId(user.getId())
+                    .stream().findFirst()
                     .map(SectionEntity::getName)
                     .orElse(null);
             UserEntity admin = userRepository.findByRole(UserRole.ADMIN)
@@ -190,6 +191,13 @@ public class UserService {
                     .map(TeamEntity::getName)
                     .orElse(null);
         }
+        String supervisedSectionName = null;
+        if (entity.getRole() == UserRole.INSTRUCTOR) {
+            supervisedSectionName = sectionRepository.findAllByInstructorId(entity.getId())
+                    .stream().findFirst()
+                    .map(s -> s.getName())
+                    .orElse(null);
+        }
         return new UserResponse(
                 entity.getId(),
                 entity.getFirstName(),
@@ -198,7 +206,8 @@ public class UserService {
                 entity.getRole().name(),
                 entity.getStatus().name(),
                 entity.getTeamId(),
-                teamName
+                teamName,
+                supervisedSectionName
         );
     }
 
@@ -210,6 +219,10 @@ public class UserService {
         user.setStatus(UserStatus.DEACTIVATED);
         user.setDeactivationReason(reason);
         user.setTeamId(null);
+        sectionRepository.findAllByInstructorId(id).forEach(section -> {
+            section.setInstructorId(null);
+            sectionRepository.save(section);
+        });
         userRepository.save(user);
         return toInstructorDetail(user);
     }
@@ -235,6 +248,11 @@ public class UserService {
                         team.getId(), team.getName(), team.getSectionName());
             }
         }
+        String supervisedSectionName = sectionRepository.findAllByInstructorId(user.getId())
+                .stream().findFirst()
+                .map(s -> s.getName())
+                .orElse(null);
+
         return new InstructorDetailResponse(
                 user.getId(),
                 user.getFirstName(),
@@ -242,7 +260,8 @@ public class UserService {
                 user.getEmail(),
                 user.getRole().name(),
                 user.getStatus().name(),
-                supervisedTeam
+                supervisedTeam,
+                supervisedSectionName
         );
     }
 }
