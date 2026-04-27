@@ -6,7 +6,7 @@ COPY ${JAR_FILE} application.jar
 RUN mkdir layers && java -Djarmode=tools -jar application.jar extract --layers --launcher --destination layers
 
 # ---- Run ----
-FROM --platform=linux/amd64 eclipse-temurin:25-jdk
+FROM --platform=linux/amd64 eclipse-temurin:25-jre
 WORKDIR /app
 COPY --from=builder /app/layers/dependencies/ ./
 COPY --from=builder /app/layers/spring-boot-loader/ ./

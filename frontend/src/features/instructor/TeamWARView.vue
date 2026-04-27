@@ -10,6 +10,13 @@ const isStudent = computed(() => auth.user?.role === 'student')
 
 // ── Week selection ─────────────────────────────────────────────────────────────
 
+function toLocalISODate(date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 function getRecentMondays(count = 10) {
   const mondays = []
   const today   = new Date()
@@ -20,7 +27,7 @@ function getRecentMondays(count = 10) {
   for (let i = 0; i <= count; i++) {
     const m = new Date(currentMonday)
     m.setDate(currentMonday.getDate() - 7 * i)
-    mondays.push(m.toISOString().split('T')[0])
+    mondays.push(toLocalISODate(m))
   }
   return mondays
 }
