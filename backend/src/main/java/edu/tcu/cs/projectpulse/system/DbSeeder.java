@@ -45,22 +45,22 @@ public class DbSeeder implements CommandLineRunner {
     private void seedUsers() {
         String hash = passwordEncoder.encode("password");
 
-        createUserIfAbsent("admin@tcu.edu",    "Admin",  "User",    UserRole.ADMIN,      null);
-        createUserIfAbsent("johnson@tcu.edu",  "Dr.",    "Johnson", UserRole.INSTRUCTOR, null);
-        createUserIfAbsent("smith@tcu.edu",    "Dr.",    "Smith",   UserRole.INSTRUCTOR, null);
-        createUserIfAbsent("jones@tcu.edu",    "Dr.",    "Jones",   UserRole.INSTRUCTOR, null);
-        createUserIfAbsent("alice@tcu.edu",    "Alice",  "Chen",    UserRole.STUDENT,    1L);
-        createUserIfAbsent("bob@tcu.edu",      "Bob",    "Smith",   UserRole.STUDENT,    1L);
-        createUserIfAbsent("carol@tcu.edu",    "Carol",  "White",   UserRole.STUDENT,    1L);
-        createUserIfAbsent("dave@tcu.edu",     "Dave",   "Brown",   UserRole.STUDENT,    2L);
-        createUserIfAbsent("eve@tcu.edu",      "Eve",    "Davis",   UserRole.STUDENT,    2L);
-        createUserIfAbsent("frank@tcu.edu",    "Frank",  "Lee",     UserRole.STUDENT,    2L);
-        createUserIfAbsent("grace@tcu.edu",    "Grace",  "Kim",     UserRole.STUDENT,    3L);
-        createUserIfAbsent("hank@tcu.edu",     "Hank",   "Jones",   UserRole.STUDENT,    3L);
+        createUserIfAbsent("admin@tcu.edu",    "Admin",  "User",    UserRole.ADMIN,      null, hash);
+        createUserIfAbsent("johnson@tcu.edu",  "Dr.",    "Johnson", UserRole.INSTRUCTOR, null, hash);
+        createUserIfAbsent("smith@tcu.edu",    "Dr.",    "Smith",   UserRole.INSTRUCTOR, null, hash);
+        createUserIfAbsent("jones@tcu.edu",    "Dr.",    "Jones",   UserRole.INSTRUCTOR, null, hash);
+        createUserIfAbsent("alice@tcu.edu",    "Alice",  "Chen",    UserRole.STUDENT,    1L,   hash);
+        createUserIfAbsent("bob@tcu.edu",      "Bob",    "Smith",   UserRole.STUDENT,    1L,   hash);
+        createUserIfAbsent("carol@tcu.edu",    "Carol",  "White",   UserRole.STUDENT,    1L,   hash);
+        createUserIfAbsent("dave@tcu.edu",     "Dave",   "Brown",   UserRole.STUDENT,    2L,   hash);
+        createUserIfAbsent("eve@tcu.edu",      "Eve",    "Davis",   UserRole.STUDENT,    2L,   hash);
+        createUserIfAbsent("frank@tcu.edu",    "Frank",  "Lee",     UserRole.STUDENT,    2L,   hash);
+        createUserIfAbsent("grace@tcu.edu",    "Grace",  "Kim",     UserRole.STUDENT,    3L,   hash);
+        createUserIfAbsent("hank@tcu.edu",     "Hank",   "Jones",   UserRole.STUDENT,    3L,   hash);
     }
 
     private void createUserIfAbsent(String email, String firstName, String lastName,
-                                    UserRole role, Long teamId) {
+                                    UserRole role, Long teamId, String encodedPassword) {
         if (userRepository.findByEmail(email).isPresent()) return;
         UserEntity u = new UserEntity();
         u.setEmail(email);
@@ -68,7 +68,7 @@ public class DbSeeder implements CommandLineRunner {
         u.setLastName(lastName);
         u.setRole(role);
         u.setStatus(UserStatus.ACTIVE);
-        u.setPassword(passwordEncoder.encode("password"));
+        u.setPassword(encodedPassword);
         u.setEnabled(true);
         u.setTeamId(teamId);
         userRepository.save(u);

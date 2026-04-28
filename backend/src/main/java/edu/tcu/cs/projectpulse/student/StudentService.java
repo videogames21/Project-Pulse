@@ -119,6 +119,7 @@ public class StudentService {
         return enriched;
     }
 
+    @Transactional(readOnly = true)
     public StudentDetailResponse viewStudent(Long id, Authentication authentication) {
         UserEntity caller = loadCaller(authentication);
         UserEntity student = userRepository.findById(id)

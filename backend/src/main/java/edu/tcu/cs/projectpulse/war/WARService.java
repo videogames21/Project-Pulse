@@ -40,6 +40,7 @@ public class WARService {
         this.teamRepository = teamRepository;
     }
 
+    @Transactional(readOnly = true)
     public WARResponse getWAR(Long studentId, LocalDate weekStart) {
         validateStudentExists(studentId);
         validateWeekStart(weekStart);
@@ -124,6 +125,7 @@ public class WARService {
 
     // ── UC-32: Team WAR report ───────────────────────────────────────────────
 
+    @Transactional(readOnly = true)
     public TeamWARReportResponse getTeamReport(Long teamId, LocalDate weekStart) {
         validateWeekStart(weekStart);
 
@@ -152,6 +154,7 @@ public class WARService {
 
     // ── UC-34: Student WAR range report ─────────────────────────────────────
 
+    @Transactional(readOnly = true)
     public StudentWARRangeReportResponse getStudentRangeReport(Long studentId,
                                                                 LocalDate startWeek,
                                                                 LocalDate endWeek) {
