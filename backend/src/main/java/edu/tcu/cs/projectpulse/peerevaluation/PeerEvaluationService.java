@@ -101,6 +101,7 @@ public class PeerEvaluationService {
         return toResponse(saved);
     }
 
+    @Transactional(readOnly = true)
     public PeerEvaluationResponse findById(Long id) {
         return toResponse(peerEvaluationRepository.findById(id)
                 .orElseThrow(() -> new PeerEvaluationNotFoundException(id)));
@@ -108,6 +109,7 @@ public class PeerEvaluationService {
 
     // ── UC-28: Fetch evaluations already submitted by an evaluator for a week ──
 
+    @Transactional(readOnly = true)
     public List<PeerEvaluationResponse> findByEvaluatorAndWeek(Long evaluatorId, LocalDate weekStart) {
         validateWeekStart(weekStart);
         return peerEvaluationRepository.findAllByEvaluatorIdAndWeekStart(evaluatorId, weekStart)
@@ -134,6 +136,7 @@ public class PeerEvaluationService {
 
     // ── UC-29: Student report ────────────────────────────────────────────────
 
+    @Transactional(readOnly = true)
     public StudentPeerEvaluationReportResponse getStudentReport(Long studentId, LocalDate weekStart) {
         validateWeekStart(weekStart);
 
@@ -262,6 +265,7 @@ public class PeerEvaluationService {
 
     // ── UC-33: Instructor range report for a student ─────────────────────────
 
+    @Transactional(readOnly = true)
     public StudentPeerEvalRangeReportResponse getStudentRangeReport(Long studentId,
                                                                      LocalDate startWeek,
                                                                      LocalDate endWeek) {

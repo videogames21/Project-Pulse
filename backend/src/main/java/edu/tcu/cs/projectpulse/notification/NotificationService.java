@@ -29,6 +29,7 @@ public class NotificationService {
                 .toList();
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public void markRead(Long id) {
         NotificationEntity n = notificationRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Notification not found: " + id));

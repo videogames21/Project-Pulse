@@ -10,7 +10,7 @@
 #
 # Runtime env-vars that must be set as App Settings on the Web App
 # (not in this workflow) so the containers can read them at startup:
-#   AZURE_MYSQL_URL, AZURE_MYSQL_USER, AZURE_MYSQL_PASSWORD, JWT_SECRET
+#   AZURE_POSTGRES_URL, AZURE_POSTGRES_USER, AZURE_POSTGRES_PASSWORD, JWT_SECRET
 
 name: Build and Deploy to Azure Web App
 

@@ -55,7 +55,12 @@ async function openAssignInstructor() {
   selectedInstructorId.value  = null
   try {
     const res = await usersApi.getInstructors(null, true)
-    availableInstructors.value = res.data.filter(i => i.teamId === null && i.status === 'ACTIVE')
+    const alreadyAssignedIds = new Set((team.value.instructors ?? []).map(i => i.id))
+    availableInstructors.value = res.data.filter(i =>
+      i.status === 'ACTIVE' &&
+      i.supervisedSectionName === team.value.sectionName &&
+      !alreadyAssignedIds.has(i.id)
+    )
   } catch (e) {
     assignInstructorError.value = 'Failed to load instructors.'
   }
@@ -151,7 +156,7 @@ async function confirmSave() {
     team.value = res.data
     editing.value = false
   } catch (e) {
-    saveError.value = e.response?.data?.message ?? e.message
+    saveError.value = e.data?.message ?? e.message
   } finally {
     saving.value = false
   }
@@ -441,7 +446,7 @@ async function confirmDelete() {
             {{ assignInstructorError }}
           </div>
           <div v-if="availableInstructors.length === 0" class="muted">
-            No unassigned instructors available.
+            No unassigned instructors available. Please assign instructors to section first.
           </div>
           <div v-else class="form-group" style="margin-bottom:0">
             <label>Select Instructor</label>

@@ -17,7 +17,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class UserService {
@@ -211,6 +210,7 @@ public class UserService {
         );
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public InstructorDetailResponse deactivateInstructor(Long id, String reason) {
         UserEntity user = findEntityById(id);
         if (user.getRole() != UserRole.INSTRUCTOR) {
@@ -218,7 +218,10 @@ public class UserService {
         }
         user.setStatus(UserStatus.DEACTIVATED);
         user.setDeactivationReason(reason);
-        user.setTeamId(null);
+        teamRepository.findTeamsByInstructorId(id).forEach(team -> {
+            team.getInstructors().removeIf(i -> i.getId().equals(id));
+            teamRepository.save(team);
+        });
         sectionRepository.findAllByInstructorId(id).forEach(section -> {
             section.setInstructorId(null);
             sectionRepository.save(section);
@@ -227,6 +230,7 @@ public class UserService {
         return toInstructorDetail(user);
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public InstructorDetailResponse reactivateInstructor(Long id) {
         UserEntity user = findEntityById(id);
         if (user.getRole() != UserRole.INSTRUCTOR) {
@@ -239,15 +243,12 @@ public class UserService {
     }
 
     public InstructorDetailResponse toInstructorDetail(UserEntity user) {
-        InstructorDetailResponse.SupervisedTeam supervisedTeam = null;
-        if (user.getTeamId() != null) {
-            Optional<TeamEntity> teamOpt = teamRepository.findById(user.getTeamId());
-            if (teamOpt.isPresent()) {
-                TeamEntity team = teamOpt.get();
-                supervisedTeam = new InstructorDetailResponse.SupervisedTeam(
-                        team.getId(), team.getName(), team.getSectionName());
-            }
-        }
+        List<InstructorDetailResponse.SupervisedTeam> supervisedTeams =
+                teamRepository.findTeamsByInstructorId(user.getId()).stream()
+                        .map(t -> new InstructorDetailResponse.SupervisedTeam(
+                                t.getId(), t.getName(), t.getSectionName()))
+                        .toList();
+
         String supervisedSectionName = sectionRepository.findAllByInstructorId(user.getId())
                 .stream().findFirst()
                 .map(s -> s.getName())
@@ -260,7 +261,7 @@ public class UserService {
                 user.getEmail(),
                 user.getRole().name(),
                 user.getStatus().name(),
-                supervisedTeam,
+                supervisedTeams,
                 supervisedSectionName
         );
     }

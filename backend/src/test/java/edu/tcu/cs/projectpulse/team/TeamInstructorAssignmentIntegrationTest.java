@@ -34,8 +34,8 @@ class TeamInstructorAssignmentIntegrationTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
+        teamRepository.deleteAll(); // must come first — cleans up team_instructors join table
         userRepository.deleteAll();
-        teamRepository.deleteAll();
     }
 
     private Long createTeam(String name) throws Exception {
@@ -133,7 +133,26 @@ class TeamInstructorAssignmentIntegrationTest {
     }
 
     @Test
-    void assignInstructor_alreadyAssigned_returns409() throws Exception {
+    void assignInstructor_sameTeamTwice_returns409() throws Exception {
+        Long teamId       = createTeam("Team Alpha");
+        Long instructorId = createInstructor("Dr.", "Smith", "smith@tcu.edu");
+
+        mockMvc.perform(post("/api/v1/teams/{id}/instructors", teamId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("instructorId", instructorId))))
+                .andExpect(status().isOk());
+
+        // Assigning the same instructor to the same team again should fail
+        mockMvc.perform(post("/api/v1/teams/{id}/instructors", teamId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("instructorId", instructorId))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void assignInstructor_multipleTeams_returns200() throws Exception {
+        // BR-1: an instructor can be assigned to multiple teams
         Long teamId       = createTeam("Team Alpha");
         Long team2Id      = createTeam("Team Beta");
         Long instructorId = createInstructor("Dr.", "Smith", "smith@tcu.edu");
@@ -146,8 +165,7 @@ class TeamInstructorAssignmentIntegrationTest {
         mockMvc.perform(post("/api/v1/teams/{id}/instructors", team2Id)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("instructorId", instructorId))))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.success").value(false));
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -267,15 +285,10 @@ class TeamInstructorAssignmentIntegrationTest {
 
     @Test
     void removeInstructor_notAssignedToThisTeam_returns409() throws Exception {
-        Long teamId  = createTeam("Team Alpha");
-        Long team2Id = createTeam("Team Beta");
+        Long teamId       = createTeam("Team Alpha");
         Long instructorId = createInstructor("Dr.", "Smith", "smith@tcu.edu");
 
-        mockMvc.perform(post("/api/v1/teams/{id}/instructors", team2Id)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("instructorId", instructorId))))
-                .andExpect(status().isOk());
-
+        // Instructor was never assigned to this team — remove should fail
         mockMvc.perform(delete("/api/v1/teams/{id}/instructors/{iid}", teamId, instructorId))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false));
