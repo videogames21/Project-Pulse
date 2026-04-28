@@ -156,7 +156,7 @@ async function confirmSave() {
     team.value = res.data
     editing.value = false
   } catch (e) {
-    saveError.value = e.response?.data?.message ?? e.message
+    saveError.value = e.data?.message ?? e.message
   } finally {
     saving.value = false
   }

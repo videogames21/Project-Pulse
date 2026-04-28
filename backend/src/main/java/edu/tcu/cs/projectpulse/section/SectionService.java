@@ -118,15 +118,26 @@ public class SectionService {
 
         String oldName = section.getName();
         String newName = request.name();
+        Long oldInstructorId = section.getInstructorId();
+        Long newInstructorId = request.instructorId();
+
+        // If the section instructor changed, remove the old instructor from all teams in this section
+        if (oldInstructorId != null && !oldInstructorId.equals(newInstructorId)) {
+            teamRepository.findAllBySectionNameOrderByNameAsc(oldName).forEach(team -> {
+                boolean removed = team.getInstructors().removeIf(i -> i.getId().equals(oldInstructorId));
+                if (removed) teamRepository.save(team);
+            });
+        }
 
         section.setName(newName);
         section.setStartDate(request.startDate());
         section.setEndDate(request.endDate());
-        section.setInstructorId(request.instructorId());
+        section.setInstructorId(newInstructorId);
 
         if (!oldName.equals(newName)) {
-            teamRepository.findAllBySectionNameOrderByNameAsc(oldName)
-                    .forEach(t -> t.setSectionName(newName));
+            List<TeamEntity> teamsToRename = teamRepository.findAllBySectionNameOrderByNameAsc(oldName);
+            teamsToRename.forEach(t -> t.setSectionName(newName));
+            teamRepository.saveAll(teamsToRename);
         }
 
         if (request.rubricId() != null) {

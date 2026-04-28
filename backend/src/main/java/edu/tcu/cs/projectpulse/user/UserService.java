@@ -230,6 +230,7 @@ public class UserService {
         return toInstructorDetail(user);
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public InstructorDetailResponse reactivateInstructor(Long id) {
         UserEntity user = findEntityById(id);
         if (user.getRole() != UserRole.INSTRUCTOR) {

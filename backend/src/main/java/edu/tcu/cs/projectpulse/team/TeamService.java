@@ -133,15 +133,6 @@ public class TeamService {
             throw new IllegalArgumentException("User " + instructorId + " is not an instructor.");
         }
 
-        // UC-19: instructor must be assigned to the section this team belongs to first
-        boolean assignedToSection = sectionRepository.findAllByInstructorId(instructorId)
-                .stream()
-                .anyMatch(s -> s.getName().equals(team.getSectionName()));
-        if (!assignedToSection) {
-            throw new IllegalStateException(
-                    "Instructor must be assigned to section \"" + team.getSectionName() + "\" before being assigned to a team in that section.");
-        }
-
         if (team.getInstructors().stream().anyMatch(i -> i.getId().equals(instructorId))) {
             throw new IllegalStateException("Instructor is already assigned to this team.");
         }

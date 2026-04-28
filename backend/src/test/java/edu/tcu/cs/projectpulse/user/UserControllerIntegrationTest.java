@@ -47,8 +47,8 @@ class UserControllerIntegrationTest {
                 .build();
 
         invitationRepository.deleteAll();
+        teamRepository.deleteAll(); // must come before userRepository — cleans up team_instructors FK
         userRepository.deleteAll();
-        teamRepository.deleteAll();
         sectionRepository.deleteAll();
 
         // Re-seed base users
@@ -619,7 +619,7 @@ class UserControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.email").value("alice-prof@example.com"))
                 .andExpect(jsonPath("$.data.role").value("INSTRUCTOR"))
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"))
-                .andExpect(jsonPath("$.data.supervisedTeam").isEmpty());
+                .andExpect(jsonPath("$.data.supervisedTeams").isEmpty());
     }
 
     @Test
@@ -650,35 +650,36 @@ class UserControllerIntegrationTest {
 
     @Test
     void findById_instructorAssignedToTeam_returnsSupervisedTeam() throws Exception {
-        TeamEntity team = new TeamEntity();
-        team.setName("New Team");
-        team.setSectionName("CS4910");
-        team = teamRepository.save(team);
-
         UserEntity u = new UserEntity();
         u.setFirstName("Dave");
         u.setLastName("Smith");
         u.setEmail("dave-smith@example.com");
         u.setRole(UserRole.INSTRUCTOR);
-        u.setTeamId(team.getId());
-        userRepository.save(u);
+        u = userRepository.save(u);
+
+        TeamEntity team = new TeamEntity();
+        team.setName("New Team");
+        team.setSectionName("CS4910");
+        team.getInstructors().add(u);
+        teamRepository.save(team);
 
         mockMvc.perform(get("/api/v1/users/" + u.getId())
                         .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.supervisedTeam.teamId").isNumber())
-                .andExpect(jsonPath("$.data.supervisedTeam.teamName").value("New Team"))
-                .andExpect(jsonPath("$.data.supervisedTeam.sectionName").value("CS4910"));
+                .andExpect(jsonPath("$.data.supervisedTeams", hasSize(1)))
+                .andExpect(jsonPath("$.data.supervisedTeams[0].teamId").isNumber())
+                .andExpect(jsonPath("$.data.supervisedTeams[0].teamName").value("New Team"))
+                .andExpect(jsonPath("$.data.supervisedTeams[0].sectionName").value("CS4910"));
     }
 
     @Test
-    void findById_instructorNotAssigned_supervisedTeamIsNull() throws Exception {
+    void findById_instructorNotAssigned_supervisedTeamsIsEmpty() throws Exception {
         UserEntity u = createUser("Eve", "Brown", "eve-brown@example.com", UserRole.INSTRUCTOR);
 
         mockMvc.perform(get("/api/v1/users/" + u.getId())
                         .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.supervisedTeam").doesNotExist());
+                .andExpect(jsonPath("$.data.supervisedTeams").isEmpty());
     }
 
     // ── PATCH /api/v1/users/{id}/deactivate — UC-23 ──────────────────────────
@@ -732,12 +733,12 @@ class UserControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"reason\":\"Left university\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.supervisedTeam").doesNotExist());
+                .andExpect(jsonPath("$.data.supervisedTeams").isEmpty());
 
         mockMvc.perform(get("/api/v1/users/" + u.getId())
                         .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.supervisedTeam").doesNotExist());
+                .andExpect(jsonPath("$.data.supervisedTeams").isEmpty());
     }
 
     @Test
@@ -841,7 +842,7 @@ class UserControllerIntegrationTest {
         mockMvc.perform(patch("/api/v1/users/" + u.getId() + "/reactivate")
                         .header("Authorization", jwtHelper.adminToken()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.supervisedTeam").doesNotExist());
+                .andExpect(jsonPath("$.data.supervisedTeams").isEmpty());
     }
 
     @Test
