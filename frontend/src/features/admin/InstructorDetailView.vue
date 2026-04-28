@@ -185,14 +185,14 @@ async function confirmAction() {
         </div>
       </div>
 
-      <!-- Supervised Team -->
+      <!-- Supervised Teams -->
       <div class="card" style="margin-top:16px;padding:0;overflow:hidden">
         <div class="card-header" style="padding:12px 16px">
-          <h3 style="font-size:.95rem;font-weight:700">Supervised Team</h3>
+          <h3 style="font-size:.95rem;font-weight:700">Supervised Teams</h3>
         </div>
 
-        <div v-if="!instructor.supervisedTeam" style="padding:16px">
-          <p class="muted">This instructor is not currently assigned to a team.</p>
+        <div v-if="!instructor.supervisedTeams || instructor.supervisedTeams.length === 0" style="padding:16px">
+          <p class="muted">This instructor is not currently assigned to any teams.</p>
         </div>
 
         <div v-else class="table-wrap">
@@ -204,16 +204,16 @@ async function confirmAction() {
               </tr>
             </thead>
             <tbody>
-              <tr>
+              <tr v-for="team in instructor.supervisedTeams" :key="team.teamId">
                 <td>
                   <strong
                     style="color:var(--purple);cursor:pointer"
-                    @click="router.push(`/admin/teams/${instructor.supervisedTeam.teamId}`)"
+                    @click="router.push(`/admin/teams/${team.teamId}`)"
                   >
-                    {{ instructor.supervisedTeam.teamName }}
+                    {{ team.teamName }}
                   </strong>
                 </td>
-                <td class="muted">{{ instructor.supervisedTeam.sectionName }}</td>
+                <td class="muted">{{ team.sectionName }}</td>
               </tr>
             </tbody>
           </table>

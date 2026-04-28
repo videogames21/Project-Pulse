@@ -1,5 +1,7 @@
 package edu.tcu.cs.projectpulse.user.dto;
 
+import java.util.List;
+
 public record InstructorDetailResponse(
         Long id,
         String firstName,
@@ -7,7 +9,7 @@ public record InstructorDetailResponse(
         String email,
         String role,
         String status,
-        SupervisedTeam supervisedTeam,
+        List<SupervisedTeam> supervisedTeams,
         String supervisedSectionName
 ) {
     public record SupervisedTeam(Long teamId, String teamName, String sectionName) {}

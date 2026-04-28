@@ -1,6 +1,10 @@
 package edu.tcu.cs.projectpulse.team;
 
+import edu.tcu.cs.projectpulse.user.UserEntity;
 import jakarta.persistence.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "teams")
@@ -20,6 +24,14 @@ public class TeamEntity {
     @Column(nullable = false)
     private String sectionName;
 
+    @ManyToMany
+    @JoinTable(
+            name = "team_instructors",
+            joinColumns = @JoinColumn(name = "team_id"),
+            inverseJoinColumns = @JoinColumn(name = "instructor_id")
+    )
+    private List<UserEntity> instructors = new ArrayList<>();
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -34,4 +46,7 @@ public class TeamEntity {
 
     public String getSectionName() { return sectionName; }
     public void setSectionName(String sectionName) { this.sectionName = sectionName; }
+
+    public List<UserEntity> getInstructors() { return instructors; }
+    public void setInstructors(List<UserEntity> instructors) { this.instructors = instructors; }
 }

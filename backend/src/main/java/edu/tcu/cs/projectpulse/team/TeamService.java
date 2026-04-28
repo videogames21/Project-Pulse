@@ -98,14 +98,12 @@ public class TeamService {
     }
 
     public List<UserEntity> findInstructorsByTeamId(Long teamId) {
-        return userRepository.findByTeamId(teamId).stream()
-                .filter(u -> u.getRole() == UserRole.INSTRUCTOR)
-                .toList();
+        return teamRepository.findInstructorsByTeamId(teamId);
     }
 
     @Transactional
     public void removeInstructor(Long teamId, Long instructorId) {
-        teamRepository.findById(teamId)
+        TeamEntity team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new TeamNotFoundException(teamId));
 
         UserEntity instructor = userRepository.findById(instructorId)
@@ -115,17 +113,17 @@ public class TeamService {
             throw new IllegalArgumentException("User " + instructorId + " is not an instructor.");
         }
 
-        if (!teamId.equals(instructor.getTeamId())) {
+        boolean removed = team.getInstructors().removeIf(i -> i.getId().equals(instructorId));
+        if (!removed) {
             throw new IllegalStateException("Instructor is not assigned to this team.");
         }
 
-        instructor.setTeamId(null);
-        userRepository.save(instructor);
+        teamRepository.save(team);
     }
 
     @Transactional
     public void assignInstructor(Long teamId, Long instructorId) {
-        teamRepository.findById(teamId)
+        TeamEntity team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new TeamNotFoundException(teamId));
 
         UserEntity instructor = userRepository.findById(instructorId)
@@ -135,13 +133,21 @@ public class TeamService {
             throw new IllegalArgumentException("User " + instructorId + " is not an instructor.");
         }
 
-        if (instructor.getTeamId() != null) {
+        // UC-19: instructor must be assigned to the section this team belongs to first
+        boolean assignedToSection = sectionRepository.findAllByInstructorId(instructorId)
+                .stream()
+                .anyMatch(s -> s.getName().equals(team.getSectionName()));
+        if (!assignedToSection) {
             throw new IllegalStateException(
-                    "Instructor " + instructor.getFirstName() + " " + instructor.getLastName() + " is already assigned to a team. Remove them first.");
+                    "Instructor must be assigned to section \"" + team.getSectionName() + "\" before being assigned to a team in that section.");
         }
 
-        instructor.setTeamId(teamId);
-        userRepository.save(instructor);
+        if (team.getInstructors().stream().anyMatch(i -> i.getId().equals(instructorId))) {
+            throw new IllegalStateException("Instructor is already assigned to this team.");
+        }
+
+        team.getInstructors().add(instructor);
+        teamRepository.save(team);
     }
 
     @Transactional
