@@ -1,5 +1,6 @@
 package edu.tcu.cs.projectpulse.invitation;
 
+import edu.tcu.cs.projectpulse.invitation.dto.GenerateInstructorInvitationRequest;
 import edu.tcu.cs.projectpulse.invitation.dto.GenerateStudentInvitationRequest;
 import edu.tcu.cs.projectpulse.invitation.dto.InvitationResponse;
 import edu.tcu.cs.projectpulse.system.Result;
@@ -29,8 +30,10 @@ public class InvitationController {
 
     @PostMapping("/instructor")
     @ResponseStatus(HttpStatus.CREATED)
-    public Result generateInstructor() {
-        InvitationResponse response = service.generateInstructorInvitation();
+    public Result generateInstructor(
+            @RequestBody(required = false) GenerateInstructorInvitationRequest request) {
+        Long sectionId = request != null ? request.sectionId() : null;
+        InvitationResponse response = service.generateInstructorInvitation(sectionId);
         return new Result(true, StatusCode.SUCCESS, "Instructor invitation link generated.", response);
     }
 

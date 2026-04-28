@@ -21,4 +21,5 @@ export const usersApi = {
   },
   deactivateInstructor(id, reason) { return api.patch(`/api/v1/users/${id}/deactivate`, { reason }) },
   reactivateInstructor(id) { return api.patch(`/api/v1/users/${id}/reactivate`) },
+  assignSection(id, sectionId) { return api.patch(`/api/v1/users/${id}/section`, { sectionId }) },
 }

@@ -61,8 +61,9 @@ onMounted(async () => {
             <p>{{ section.endDate ?? '—' }}</p>
           </div>
           <div>
-            <p class="muted" style="margin-bottom:4px;font-size:.75rem;font-weight:600;text-transform:uppercase">Instructor</p>
-            <p>{{ section.instructorName ?? '—' }}</p>
+            <p class="muted" style="margin-bottom:4px;font-size:.75rem;font-weight:600;text-transform:uppercase">Instructors</p>
+            <p v-if="!(section.instructors ?? []).length">—</p>
+            <p v-else>{{ (section.instructors ?? []).map(i => i.firstName + ' ' + i.lastName).join(', ') }}</p>
           </div>
           <div>
             <p class="muted" style="margin-bottom:4px;font-size:.75rem;font-weight:600;text-transform:uppercase">Rubric</p>

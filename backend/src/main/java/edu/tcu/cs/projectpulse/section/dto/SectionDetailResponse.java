@@ -13,8 +13,8 @@ public record SectionDetailResponse(
         List<String> studentsNotOnTeam,
         Long rubricId,
         String rubricName,
-        Long instructorId,
-        String instructorName
+        List<InstructorSummary> instructors
 ) {
     public record TeamSummary(Long id, String name, List<String> students, List<String> instructors) {}
+    public record InstructorSummary(Long id, String firstName, String lastName, String email) {}
 }

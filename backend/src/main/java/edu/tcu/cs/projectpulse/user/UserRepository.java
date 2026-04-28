@@ -26,6 +26,8 @@ public interface UserRepository extends JpaRepository<UserEntity, Long>, JpaSpec
 
     List<UserEntity> findByInvitationToken(String invitationToken);
 
+    List<UserEntity> findByRoleAndSectionId(UserRole role, Long sectionId);
+
     @Query("SELECT u FROM UserEntity u WHERE u.role = :role AND " +
            "(LOWER(u.firstName) LIKE LOWER(CONCAT('%', :name, '%')) OR " +
            "LOWER(u.lastName)  LIKE LOWER(CONCAT('%', :name, '%')) OR " +

@@ -10,7 +10,8 @@ public record InstructorDetailResponse(
         String role,
         String status,
         List<SupervisedTeam> supervisedTeams,
-        String supervisedSectionName
+        String supervisedSectionName,
+        Long supervisedSectionId
 ) {
     public record SupervisedTeam(Long teamId, String teamName, String sectionName) {}
 }

@@ -19,7 +19,9 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class SectionService {
@@ -50,7 +52,6 @@ public class SectionService {
         section.setName(request.name());
         section.setStartDate(request.startDate());
         section.setEndDate(request.endDate());
-        section.setInstructorId(request.instructorId());
 
         if (request.rubricId() != null) {
             RubricEntity original = rubricRepository.findById(request.rubricId())
@@ -80,6 +81,16 @@ public class SectionService {
         }
 
         SectionEntity saved = sectionRepository.save(section);
+
+        if (request.instructorIds() != null) {
+            request.instructorIds().forEach(instrId ->
+                userRepository.findById(instrId).ifPresent(u -> {
+                    u.setSectionId(saved.getId());
+                    userRepository.save(u);
+                })
+            );
+        }
+
         return findSectionById(saved.getId());
     }
 
@@ -95,13 +106,18 @@ public class SectionService {
                             .stream()
                             .map(TeamEntity::getName)
                             .toList();
+                    List<Long> instructorIds = userRepository
+                            .findByRoleAndSectionId(UserRole.INSTRUCTOR, section.getId())
+                            .stream()
+                            .map(UserEntity::getId)
+                            .toList();
                     return new SectionResponse(
                             section.getId(),
                             section.getName(),
                             section.getStartDate(),
                             section.getEndDate(),
                             teamNames,
-                            section.getInstructorId()
+                            instructorIds
                     );
                 })
                 .toList();
@@ -118,21 +134,37 @@ public class SectionService {
 
         String oldName = section.getName();
         String newName = request.name();
-        Long oldInstructorId = section.getInstructorId();
-        Long newInstructorId = request.instructorId();
 
-        // If the section instructor changed, remove the old instructor from all teams in this section
-        if (oldInstructorId != null && !oldInstructorId.equals(newInstructorId)) {
-            teamRepository.findAllBySectionNameOrderByNameAsc(oldName).forEach(team -> {
-                boolean removed = team.getInstructors().removeIf(i -> i.getId().equals(oldInstructorId));
-                if (removed) teamRepository.save(team);
-            });
+        List<UserEntity> currentInstructors = userRepository.findByRoleAndSectionId(UserRole.INSTRUCTOR, id);
+        Set<Long> currentIds = new HashSet<>();
+        for (UserEntity u : currentInstructors) currentIds.add(u.getId());
+
+        Set<Long> newIds = new HashSet<>();
+        if (request.instructorIds() != null) newIds.addAll(request.instructorIds());
+
+        for (UserEntity u : currentInstructors) {
+            if (!newIds.contains(u.getId())) {
+                u.setSectionId(null);
+                userRepository.save(u);
+                teamRepository.findAllBySectionNameOrderByNameAsc(oldName).forEach(team -> {
+                    boolean removed = team.getInstructors().removeIf(i -> i.getId().equals(u.getId()));
+                    if (removed) teamRepository.save(team);
+                });
+            }
+        }
+
+        for (Long instrId : newIds) {
+            if (!currentIds.contains(instrId)) {
+                userRepository.findById(instrId).ifPresent(u -> {
+                    u.setSectionId(id);
+                    userRepository.save(u);
+                });
+            }
         }
 
         section.setName(newName);
         section.setStartDate(request.startDate());
         section.setEndDate(request.endDate());
-        section.setInstructorId(newInstructorId);
 
         if (!oldName.equals(newName)) {
             List<TeamEntity> teamsToRename = teamRepository.findAllBySectionNameOrderByNameAsc(oldName);
@@ -197,6 +229,10 @@ public class SectionService {
                 })
                 .toList();
 
+        List<UserEntity> sectionInstructors = userRepository.findByRoleAndSectionId(UserRole.INSTRUCTOR, id);
+        Set<Long> assignedInstructorIds = new HashSet<>();
+        for (UserEntity u : sectionInstructors) assignedInstructorIds.add(u.getId());
+
         List<String> studentsNotOnTeam = userRepository
                 .findByRoleAndTeamIdIsNull(UserRole.STUDENT)
                 .stream()
@@ -207,7 +243,7 @@ public class SectionService {
         List<String> instructorsNotOnTeam = userRepository
                 .findByRoleAndTeamIdIsNull(UserRole.INSTRUCTOR)
                 .stream()
-                .filter(u -> !u.getId().equals(section.getInstructorId()))
+                .filter(u -> !assignedInstructorIds.contains(u.getId()))
                 .map(u -> u.getFirstName() + " " + u.getLastName())
                 .sorted()
                 .toList();
@@ -219,12 +255,10 @@ public class SectionService {
                     .orElse(null);
         }
 
-        String instructorName = null;
-        if (section.getInstructorId() != null) {
-            instructorName = userRepository.findById(section.getInstructorId())
-                    .map(u -> u.getFirstName() + " " + u.getLastName())
-                    .orElse(null);
-        }
+        List<SectionDetailResponse.InstructorSummary> instructorSummaries = sectionInstructors.stream()
+                .map(u -> new SectionDetailResponse.InstructorSummary(
+                        u.getId(), u.getFirstName(), u.getLastName(), u.getEmail()))
+                .toList();
 
         return new SectionDetailResponse(
                 section.getId(),
@@ -236,8 +270,7 @@ public class SectionService {
                 studentsNotOnTeam,
                 section.getRubricId(),
                 rubricName,
-                section.getInstructorId(),
-                instructorName
+                instructorSummaries
         );
     }
 
@@ -255,6 +288,10 @@ public class SectionService {
     public void delete(Long id) {
         SectionEntity section = sectionRepository.findById(id)
                 .orElseThrow(() -> new SectionNotFoundException(id));
+        userRepository.findByRoleAndSectionId(UserRole.INSTRUCTOR, id).forEach(u -> {
+            u.setSectionId(null);
+            userRepository.save(u);
+        });
         activeWeekRepository.deleteBySectionId(id);
         sectionRepository.delete(section);
     }

@@ -84,8 +84,10 @@ class UserControllerIntegrationTest {
         cs4910.setName("CS4910");
         cs4910.setStartDate(LocalDate.of(2024, 8, 26));
         cs4910.setEndDate(LocalDate.of(2025, 5, 10));
-        cs4910.setInstructorId(instructor.getId());
         cs4910Id = sectionRepository.save(cs4910).getId();
+
+        instructor.setSectionId(cs4910Id);
+        userRepository.save(instructor);
 
         // Re-seed teams needed for profile tests
         TeamEntity alpha = new TeamEntity();

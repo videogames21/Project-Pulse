@@ -64,6 +64,9 @@ public class AuthService {
             }
             user.setRole(UserRole.INSTRUCTOR);
             user.setMiddleInitial(req.middleInitial());
+            if (invitation.getSectionId() != null) {
+                user.setSectionId(invitation.getSectionId());
+            }
             invitation.setStatus(InvitationStatus.ACCEPTED);
             invitationRepository.save(invitation);
         } else {
