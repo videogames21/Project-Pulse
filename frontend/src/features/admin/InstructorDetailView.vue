@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '../../components/AppLayout.vue'
 import { usersApi } from '../../api/users.js'
+import { sectionsApi } from '../../api/sections.js'
 
 const route      = useRoute()
 const router     = useRouter()
@@ -14,14 +15,47 @@ const pendingAction    = ref(null) // 'deactivate' | 'reactivate'
 const deactivateReason = ref('')
 const loading          = ref(false)
 
+const sections       = ref([])
+const selectedSection = ref(null)
+const sectionSaving  = ref(false)
+const sectionError   = ref('')
+const sectionSuccess = ref('')
+
 onMounted(async () => {
   try {
-    const res = await usersApi.getInstructorById(route.params.id)
-    instructor.value = res.data
+    const [instrRes, sectionsRes] = await Promise.allSettled([
+      usersApi.getInstructorById(route.params.id),
+      sectionsApi.getAll(),
+    ])
+    if (instrRes.status === 'fulfilled') {
+      instructor.value = instrRes.value.data
+      selectedSection.value = instructor.value.supervisedSectionId ?? null
+    } else {
+      error.value = instrRes.reason?.message ?? 'Failed to load instructor.'
+    }
+    if (sectionsRes.status === 'fulfilled') {
+      sections.value = sectionsRes.value.data ?? []
+    }
   } catch (e) {
     error.value = e.message
   }
 })
+
+async function saveSection() {
+  sectionSaving.value  = true
+  sectionError.value   = ''
+  sectionSuccess.value = ''
+  try {
+    const res = await usersApi.assignSection(route.params.id, selectedSection.value)
+    instructor.value = res.data
+    selectedSection.value = instructor.value.supervisedSectionId ?? null
+    sectionSuccess.value = 'Section assignment saved.'
+  } catch (e) {
+    sectionError.value = e.data?.message || e.message || 'Failed to save section.'
+  } finally {
+    sectionSaving.value = false
+  }
+}
 
 function promptAction(action) {
   pendingAction.value    = action
@@ -177,11 +211,26 @@ async function confirmAction() {
       <!-- Section Assignment -->
       <div class="card" style="margin-top:16px">
         <div class="card-header" style="padding:12px 16px">
-          <h3 style="font-size:.95rem;font-weight:700">Assigned Section</h3>
+          <h3 style="font-size:.95rem;font-weight:700">Section Assignment</h3>
         </div>
         <div style="padding:16px">
-          <p v-if="!instructor.supervisedSectionName" class="muted">This instructor is not assigned to any section.</p>
-          <p v-else style="font-weight:600">{{ instructor.supervisedSectionName }}</p>
+          <div v-if="sectionError" class="alert alert-error" style="margin-bottom:8px;font-size:.875rem">{{ sectionError }}</div>
+          <div v-if="sectionSuccess" class="alert alert-success" style="margin-bottom:8px;font-size:.875rem">{{ sectionSuccess }}</div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <select
+              v-model="selectedSection"
+              style="flex:1;min-width:200px;padding:8px 10px;border:1.5px solid #d8d3e3;border-radius:8px;font-size:.9rem"
+            >
+              <option :value="null">— No section assigned —</option>
+              <option v-for="sec in sections" :key="sec.id" :value="sec.id">
+                {{ sec.sectionName }}
+              </option>
+            </select>
+            <button class="btn btn-primary btn-sm" :disabled="sectionSaving" @click="saveSection">
+              {{ sectionSaving ? 'Saving…' : 'Save' }}
+            </button>
+          </div>
+          <p class="muted" style="font-size:.78rem;margin-top:6px">Set to "No section" to unassign this instructor from their section.</p>
         </div>
       </div>
 

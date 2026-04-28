@@ -18,13 +18,7 @@ const loadError = ref('')
 const form = ref({ name: '', startDate: '', endDate: '' })
 const step1Error = ref('')
 const instructors = ref([])
-const assignedInstructorIds = ref(new Set())
-const selectedInstructorId = ref(null)
-const availableInstructors = computed(() =>
-  instructors.value.filter(i =>
-    !assignedInstructorIds.value.has(i.id) || i.id === selectedInstructorId.value
-  )
-)
+const selectedInstructorIds = ref([])
 
 // Step 2 — rubric selection
 const rubrics = ref([])
@@ -51,11 +45,10 @@ const criteriaTotal = computed(() =>
 // ── Lifecycle — load existing section + rubrics ───────────────────────────────
 onMounted(async () => {
   try {
-    const [sectionRes, rubricsRes, instructorsRes, sectionsRes] = await Promise.allSettled([
+    const [sectionRes, rubricsRes, instructorsRes] = await Promise.allSettled([
       sectionsApi.getById(route.params.id),
       rubricsApi.getAll(),
       usersApi.getInstructors(undefined, true),
-      sectionsApi.getAll(),
     ])
 
     if (sectionRes.status === 'rejected') {
@@ -79,17 +72,10 @@ onMounted(async () => {
     }
 
     if (instructorsRes.status === 'fulfilled') instructors.value = instructorsRes.value.data ?? []
-    if (sectionsRes.status === 'fulfilled') {
-      const ids = (sectionsRes.value.data ?? [])
-        .filter(sec => sec.id !== Number(route.params.id))
-        .map(sec => sec.instructorId)
-        .filter(id => id != null)
-      assignedInstructorIds.value = new Set(ids)
-    }
 
-    // Pre-select the rubric and instructor that were previously linked
+    // Pre-select the rubric and instructors that were previously linked
     if (s.rubricId) selectedRubricId.value = s.rubricId
-    if (s.instructorId) selectedInstructorId.value = s.instructorId
+    selectedInstructorIds.value = (s.instructors ?? []).map(i => i.id)
   } finally {
     loading.value = false
   }
@@ -178,7 +164,7 @@ async function confirm() {
       endDate:   form.value.endDate   || null,
     }
 
-    if (selectedInstructorId.value !== null) payload.instructorId = selectedInstructorId.value
+    payload.instructorIds = selectedInstructorIds.value
 
     if (selectedRubricId.value !== null) {
       payload.rubricId = selectedRubricId.value
@@ -278,13 +264,25 @@ const stepLabels = ['Details', 'Rubric', 'Criteria', 'Confirm']
           </div>
 
           <div class="form-group" style="margin-bottom:24px">
-            <label>Section Instructor</label>
-            <select v-model="selectedInstructorId">
-              <option :value="null">— No instructor assigned —</option>
-              <option v-for="i in availableInstructors" :key="i.id" :value="i.id">
+            <label>Section Instructors</label>
+            <p class="muted" style="font-size:.78rem;margin-bottom:6px">Select all instructors assigned to this section.</p>
+            <div v-if="instructors.length === 0" class="muted" style="font-size:.85rem">No instructors available.</div>
+            <div
+              v-for="i in instructors"
+              :key="i.id"
+              style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--surface-2)"
+            >
+              <input
+                type="checkbox"
+                :id="'instr-' + i.id"
+                :value="i.id"
+                v-model="selectedInstructorIds"
+                style="accent-color:var(--primary)"
+              />
+              <label :for="'instr-' + i.id" style="cursor:pointer;margin:0">
                 {{ i.firstName }} {{ i.lastName }}
-              </option>
-            </select>
+              </label>
+            </div>
           </div>
 
           <div class="flex gap-2 justify-end">
@@ -476,10 +474,14 @@ const stepLabels = ['Details', 'Rubric', 'Criteria', 'Confirm']
                 <p>{{ form.endDate || '—' }}</p>
               </div>
               <div>
-                <p class="muted" style="font-size:.72rem;text-transform:uppercase;font-weight:600">Instructor</p>
-                <p>{{ instructors.find(i => i.id === selectedInstructorId)
-                  ? instructors.find(i => i.id === selectedInstructorId).firstName + ' ' + instructors.find(i => i.id === selectedInstructorId).lastName
-                  : '—' }}</p>
+                <p class="muted" style="font-size:.72rem;text-transform:uppercase;font-weight:600">Instructors</p>
+                <p v-if="selectedInstructorIds.length === 0">—</p>
+                <ul v-else style="margin:0;padding-left:16px;font-size:.88rem">
+                  <li v-for="instrId in selectedInstructorIds" :key="instrId">
+                    {{ instructors.find(i => i.id === instrId)?.firstName }}
+                    {{ instructors.find(i => i.id === instrId)?.lastName }}
+                  </li>
+                </ul>
               </div>
             </div>
           </div>

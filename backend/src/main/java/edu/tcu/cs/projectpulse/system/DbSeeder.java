@@ -40,6 +40,7 @@ public class DbSeeder implements CommandLineRunner {
         seedSections();
         seedTeams();
         linkStudentSections();
+        linkInstructorSections();
     }
 
     private void seedUsers() {
@@ -102,6 +103,22 @@ public class DbSeeder implements CommandLineRunner {
         t.setWebsiteUrl(url);
         t.setSectionName(sectionName);
         teamRepository.save(t);
+    }
+
+    private void linkInstructorSections() {
+        assignInstructorToSection("johnson@tcu.edu", "CS4910");
+        assignInstructorToSection("smith@tcu.edu",   "CS4910");
+        assignInstructorToSection("jones@tcu.edu",   "CS4911");
+    }
+
+    private void assignInstructorToSection(String email, String sectionName) {
+        userRepository.findByEmail(email).ifPresent(instructor -> {
+            if (instructor.getSectionId() != null) return;
+            sectionRepository.findByName(sectionName).ifPresent(section -> {
+                instructor.setSectionId(section.getId());
+                userRepository.save(instructor);
+            });
+        });
     }
 
     private void linkStudentSections() {

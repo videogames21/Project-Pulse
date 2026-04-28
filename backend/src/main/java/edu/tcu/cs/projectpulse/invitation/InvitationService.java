@@ -59,7 +59,7 @@ public class InvitationService {
         return toResponse(entity);
     }
 
-    public InvitationResponse generateInstructorInvitation() {
+    public InvitationResponse generateInstructorInvitation(Long sectionId) {
         String invitedBy = SecurityContextHolder.getContext().getAuthentication().getName();
 
         InvitationEntity entity = new InvitationEntity();
@@ -69,6 +69,11 @@ public class InvitationService {
         entity.setInvitedBy(invitedBy);
         entity.setRole(UserRole.INSTRUCTOR);
         entity.setAccessCode(generateAccessCode());
+        if (sectionId != null) {
+            sectionRepository.findById(sectionId)
+                    .orElseThrow(() -> new SectionNotFoundException(sectionId));
+            entity.setSectionId(sectionId);
+        }
         entity = repository.save(entity);
         log.info("Instructor invitation created: token={}", entity.getToken());
         return toResponse(entity);

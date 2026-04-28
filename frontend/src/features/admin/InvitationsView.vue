@@ -21,8 +21,12 @@ const sectionPickerModal  = ref(false)
 const selectedSectionId   = ref(null)
 const sectionPickerError  = ref('')
 
+// Section picker modal for instructor link generation
+const instructorSectionPickerModal = ref(false)
+const selectedInstructorSectionId  = ref(null)
+
 // Modal for newly generated instructor invitation
-const newInstructorModal = ref(null)  // { link, code } or null
+const newInstructorModal = ref(null)  // { link, code, sectionName } or null
 
 const STATUS_CLS = {
   ACTIVE:   'badge-green',
@@ -75,14 +79,21 @@ async function generateStudent() {
   }
 }
 
+function openInstructorSectionPicker() {
+  selectedInstructorSectionId.value = null
+  instructorSectionPickerModal.value = true
+}
+
 async function generateInstructor() {
+  instructorSectionPickerModal.value = false
   generatingInstructor.value = true
   try {
-    const res = await invitationsApi.generateInstructorLink()
+    const res = await invitationsApi.generateInstructorLink(selectedInstructorSectionId.value)
     await loadInvitations()
     newInstructorModal.value = {
-      link: res.data.registrationLink,
-      code: res.data.accessCode,
+      link:        res.data.registrationLink,
+      code:        res.data.accessCode,
+      sectionName: res.data.sectionName ?? null,
     }
   } catch {
     flash.value = { type: 'alert-warning', text: 'Failed to generate instructor link.' }
@@ -251,7 +262,7 @@ onMounted(() => {
     <div>
       <div class="flex justify-between items-center" style="margin-bottom:12px">
         <h3 style="margin:0;font-size:1.05rem;font-weight:700;color:#4D1979">Instructor Links</h3>
-        <button class="btn btn-primary btn-sm" :disabled="generatingInstructor" @click="generateInstructor">
+        <button class="btn btn-primary btn-sm" :disabled="generatingInstructor" @click="openInstructorSectionPicker">
           <template v-if="generatingInstructor">Generating…</template>
           <template v-else>+ Generate Instructor Link</template>
         </button>
@@ -264,6 +275,7 @@ onMounted(() => {
             <thead>
               <tr>
                 <th>Link ID</th>
+                <th>Section</th>
                 <th>Full Link</th>
                 <th>Generated</th>
                 <th>Used By</th>
@@ -274,11 +286,15 @@ onMounted(() => {
             </thead>
             <tbody>
               <tr v-if="instructorLinks.length === 0">
-                <td colspan="7" style="text-align:center;color:var(--text-muted)">No instructor links yet.</td>
+                <td colspan="8" style="text-align:center;color:var(--text-muted)">No instructor links yet.</td>
               </tr>
               <template v-for="inv in instructorLinks" :key="inv.id">
                 <tr>
                   <td><code>{{ inv.tokenShort }}…</code></td>
+                  <td>
+                    <span v-if="inv.sectionName">{{ inv.sectionName }}</span>
+                    <span v-else class="muted">—</span>
+                  </td>
                   <td>
                     <button class="btn btn-secondary btn-sm" @click="toggleLink(inv.id)">
                       {{ viewingToken === inv.id ? 'Hide' : 'View' }}
@@ -327,7 +343,7 @@ onMounted(() => {
                   </td>
                 </tr>
                 <tr v-if="viewingToken === inv.id">
-                  <td colspan="7" style="background:var(--bg-secondary,#f8f8f8);padding:8px 16px">
+                  <td colspan="8" style="background:var(--bg-secondary,#f8f8f8);padding:8px 16px">
                     <div class="flex items-center" style="gap:8px">
                       <input type="text" :value="inv.registrationLink" readonly style="flex:1;padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;background:var(--bg)" />
                       <button class="btn btn-secondary btn-sm" @click="copyLink(inv.registrationLink, inv.id)">
@@ -384,6 +400,49 @@ onMounted(() => {
       </div>
     </div>
 
+    <!-- ── Instructor Section Picker Modal ───────────────────────────────── -->
+    <div v-if="instructorSectionPickerModal" class="overlay" @click.self="instructorSectionPickerModal = false">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>Select Section for Instructor Link</h3>
+          <button class="modal-close" @click="instructorSectionPickerModal = false">×</button>
+        </div>
+        <div class="modal-body">
+          <p style="margin-bottom:16px;font-size:.9rem;color:#5a5070">
+            Optionally assign this instructor to a section. They will be enrolled in the selected section upon registration. You can skip this and assign a section later.
+          </p>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <label
+              style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid;border-radius:8px;cursor:pointer;transition:all .15s"
+              :style="{
+                borderColor: selectedInstructorSectionId === null ? '#4D1979' : '#d8d3e3',
+                background:  selectedInstructorSectionId === null ? '#f3e8ff' : '#fff',
+              }"
+            >
+              <input type="radio" :value="null" v-model="selectedInstructorSectionId" style="accent-color:#4D1979" />
+              <span style="font-weight:600;color:#4D1979">— No section (assign later) —</span>
+            </label>
+            <label
+              v-for="sec in sections"
+              :key="sec.id"
+              style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid;border-radius:8px;cursor:pointer;transition:all .15s"
+              :style="{
+                borderColor: selectedInstructorSectionId === sec.id ? '#4D1979' : '#d8d3e3',
+                background:  selectedInstructorSectionId === sec.id ? '#f3e8ff' : '#fff',
+              }"
+            >
+              <input type="radio" :value="sec.id" v-model="selectedInstructorSectionId" style="accent-color:#4D1979" />
+              <span style="font-weight:600;color:#4D1979">{{ sec.sectionName }}</span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-secondary" @click="instructorSectionPickerModal = false">Cancel</button>
+          <button class="btn btn-primary" @click="generateInstructor">Generate Link</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ── New Instructor Link Modal ─────────────────────────────────────── -->
     <div v-if="newInstructorModal" class="overlay" @click.self="newInstructorModal = null">
       <div class="modal">
@@ -395,6 +454,9 @@ onMounted(() => {
           <p style="margin-bottom:16px;font-size:.9rem;color:#5a5070;line-height:1.55">
             Share both pieces of information with the instructor privately. Do <strong>not</strong> share the access code with anyone besides the intended recipient, and tell them to keep it confidential.
           </p>
+          <div v-if="newInstructorModal.sectionName" style="background:#f3e8ff;border:1.5px solid #c084fc;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.875rem;color:#4D1979">
+            This link is for Section <strong>{{ newInstructorModal.sectionName }}</strong>
+          </div>
           <div class="info-block">
             <span class="info-label">Registration Link</span>
             <div class="flex items-center" style="gap:8px;margin-top:4px">

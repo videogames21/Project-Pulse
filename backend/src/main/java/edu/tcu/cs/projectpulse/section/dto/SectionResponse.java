@@ -9,5 +9,5 @@ public record SectionResponse(
         LocalDate startDate,
         LocalDate endDate,
         List<String> teamNames,
-        Long instructorId
+        List<Long> instructorIds
 ) {}

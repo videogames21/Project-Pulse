@@ -2,6 +2,7 @@ package edu.tcu.cs.projectpulse.user;
 
 import edu.tcu.cs.projectpulse.system.Result;
 import edu.tcu.cs.projectpulse.system.StatusCode;
+import edu.tcu.cs.projectpulse.user.dto.AssignSectionRequest;
 import edu.tcu.cs.projectpulse.user.dto.ChangePasswordRequest;
 import edu.tcu.cs.projectpulse.user.dto.DeactivateRequest;
 import edu.tcu.cs.projectpulse.user.dto.UpdateProfileRequest;
@@ -91,5 +92,11 @@ public class UserController {
     public Result reactivateInstructor(@PathVariable Long id) {
         return new Result(true, StatusCode.SUCCESS, "Instructor reactivated successfully",
                 userService.reactivateInstructor(id));
+    }
+
+    @PatchMapping("/{id}/section")
+    public Result assignSection(@PathVariable Long id, @RequestBody AssignSectionRequest request) {
+        return new Result(true, StatusCode.SUCCESS, "Instructor section updated successfully",
+                userService.assignSection(id, request.sectionId()));
     }
 }

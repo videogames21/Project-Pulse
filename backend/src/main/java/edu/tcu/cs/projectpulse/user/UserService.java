@@ -16,6 +16,9 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import edu.tcu.cs.projectpulse.section.SectionNotFoundException;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
 
 @Service
@@ -91,23 +94,22 @@ public class UserService {
                 SectionEntity section = sectionRepository.findById(user.getSectionId()).orElse(null);
                 if (section != null) {
                     sectionName = section.getName();
-                    if (section.getInstructorId() != null) {
-                        UserEntity instructor = userRepository.findById(section.getInstructorId()).orElse(null);
-                        if (instructor != null) {
-                            instructorName = instructor.getName();
-                            instructorEmail = instructor.getEmail();
-                        }
+                    List<UserEntity> sectionInstructors =
+                            userRepository.findByRoleAndSectionId(UserRole.INSTRUCTOR, section.getId());
+                    if (!sectionInstructors.isEmpty()) {
+                        UserEntity instructor = sectionInstructors.get(0);
+                        instructorName = instructor.getName();
+                        instructorEmail = instructor.getEmail();
                     }
                 }
             }
         }
 
         if (user.getRole() == UserRole.INSTRUCTOR) {
-            String supervisedSectionName = sectionRepository
-                    .findAllByInstructorId(user.getId())
-                    .stream().findFirst()
-                    .map(SectionEntity::getName)
-                    .orElse(null);
+            String supervisedSectionName = user.getSectionId() != null
+                    ? sectionRepository.findById(user.getSectionId())
+                            .map(SectionEntity::getName).orElse(null)
+                    : null;
             UserEntity admin = userRepository.findByRole(UserRole.ADMIN)
                     .stream().findFirst().orElse(null);
             String adminName  = admin != null ? admin.getName()  : null;
@@ -192,10 +194,10 @@ public class UserService {
         }
         String supervisedSectionName = null;
         if (entity.getRole() == UserRole.INSTRUCTOR) {
-            supervisedSectionName = sectionRepository.findAllByInstructorId(entity.getId())
-                    .stream().findFirst()
-                    .map(s -> s.getName())
-                    .orElse(null);
+            supervisedSectionName = entity.getSectionId() != null
+                    ? sectionRepository.findById(entity.getSectionId())
+                            .map(SectionEntity::getName).orElse(null)
+                    : null;
         }
         return new UserResponse(
                 entity.getId(),
@@ -210,7 +212,7 @@ public class UserService {
         );
     }
 
-    @org.springframework.transaction.annotation.Transactional
+    @Transactional
     public InstructorDetailResponse deactivateInstructor(Long id, String reason) {
         UserEntity user = findEntityById(id);
         if (user.getRole() != UserRole.INSTRUCTOR) {
@@ -222,15 +224,27 @@ public class UserService {
             team.getInstructors().removeIf(i -> i.getId().equals(id));
             teamRepository.save(team);
         });
-        sectionRepository.findAllByInstructorId(id).forEach(section -> {
-            section.setInstructorId(null);
-            sectionRepository.save(section);
-        });
+        user.setSectionId(null);
         userRepository.save(user);
         return toInstructorDetail(user);
     }
 
-    @org.springframework.transaction.annotation.Transactional
+    @Transactional
+    public InstructorDetailResponse assignSection(Long userId, Long sectionId) {
+        UserEntity user = findEntityById(userId);
+        if (user.getRole() != UserRole.INSTRUCTOR) {
+            throw new IllegalArgumentException("User " + userId + " is not an instructor");
+        }
+        if (sectionId != null) {
+            sectionRepository.findById(sectionId)
+                    .orElseThrow(() -> new SectionNotFoundException(sectionId));
+        }
+        user.setSectionId(sectionId);
+        userRepository.save(user);
+        return toInstructorDetail(user);
+    }
+
+    @Transactional
     public InstructorDetailResponse reactivateInstructor(Long id) {
         UserEntity user = findEntityById(id);
         if (user.getRole() != UserRole.INSTRUCTOR) {
@@ -249,10 +263,10 @@ public class UserService {
                                 t.getId(), t.getName(), t.getSectionName()))
                         .toList();
 
-        String supervisedSectionName = sectionRepository.findAllByInstructorId(user.getId())
-                .stream().findFirst()
-                .map(s -> s.getName())
-                .orElse(null);
+        String supervisedSectionName = user.getSectionId() != null
+                ? sectionRepository.findById(user.getSectionId())
+                        .map(SectionEntity::getName).orElse(null)
+                : null;
 
         return new InstructorDetailResponse(
                 user.getId(),
@@ -262,7 +276,8 @@ public class UserService {
                 user.getRole().name(),
                 user.getStatus().name(),
                 supervisedTeams,
-                supervisedSectionName
+                supervisedSectionName,
+                user.getSectionId()
         );
     }
 }

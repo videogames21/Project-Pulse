@@ -103,8 +103,13 @@ async function submit() {
       <!-- Valid invite form -->
       <div v-else-if="validInvite">
         <p class="reg-sub">{{ isInstructor ? 'Set up your instructor account.' : 'Create your account to get started.' }}</p>
-        <div v-if="!isInstructor && inviteData?.sectionName" class="section-notice">
-          You are signing up for Section <strong>{{ inviteData.sectionName }}</strong>
+        <div v-if="inviteData?.sectionName" class="section-notice">
+          <template v-if="isInstructor">
+            You are creating an account for Section <strong>{{ inviteData.sectionName }}</strong>
+          </template>
+          <template v-else>
+            You are signing up for Section <strong>{{ inviteData.sectionName }}</strong>
+          </template>
         </div>
 
         <div v-if="submitError" class="alert alert-warning" style="margin-bottom:14px">

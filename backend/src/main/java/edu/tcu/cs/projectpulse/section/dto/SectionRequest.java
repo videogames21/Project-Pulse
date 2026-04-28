@@ -20,5 +20,5 @@ public record SectionRequest(
         @Valid
         List<CriterionRequest> criteria,
 
-        Long instructorId
+        List<Long> instructorIds
 ) {}
