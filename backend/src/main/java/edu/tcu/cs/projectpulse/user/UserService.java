@@ -187,7 +187,12 @@ public class UserService {
 
     public UserResponse toResponse(UserEntity entity) {
         String teamName = null;
-        if (entity.getTeamId() != null) {
+        if (entity.getRole() == UserRole.INSTRUCTOR) {
+            List<TeamEntity> teams = teamRepository.findTeamsByInstructorId(entity.getId());
+            if (!teams.isEmpty()) {
+                teamName = teams.stream().map(TeamEntity::getName).collect(java.util.stream.Collectors.joining(", "));
+            }
+        } else if (entity.getTeamId() != null) {
             teamName = teamRepository.findById(entity.getTeamId())
                     .map(TeamEntity::getName)
                     .orElse(null);

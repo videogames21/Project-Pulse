@@ -100,7 +100,7 @@ onMounted(fetchReport)
         <label style="margin:0;font-weight:600">Section:</label>
         <input
           v-model="sectionName"
-          placeholder="e.g. 2024-2025"
+          placeholder="e.g. CS4910"
           style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);width:160px"
           @keyup.enter="fetchReport"
         />

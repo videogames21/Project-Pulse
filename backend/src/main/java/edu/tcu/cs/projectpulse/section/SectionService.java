@@ -206,13 +206,20 @@ public class SectionService {
         return findSectionById(id);
     }
 
+    @Transactional(readOnly = true)
     public SectionDetailResponse findSectionById(Long id) {
         SectionEntity section = sectionRepository.findById(id)
                 .orElseThrow(() -> new SectionNotFoundException(id));
 
-        List<SectionDetailResponse.TeamSummary> teams = teamRepository
-                .findAllBySectionNameOrderByNameAsc(section.getName())
-                .stream()
+        List<TeamEntity> sectionTeams = teamRepository.findAllBySectionNameOrderByNameAsc(section.getName());
+
+        // Collect instructor IDs that are on at least one team in this section
+        Set<Long> instructorIdsOnTeams = new HashSet<>();
+        for (TeamEntity t : sectionTeams) {
+            for (UserEntity u : t.getInstructors()) instructorIdsOnTeams.add(u.getId());
+        }
+
+        List<SectionDetailResponse.TeamSummary> teams = sectionTeams.stream()
                 .map(t -> {
                     List<UserEntity> members = userRepository.findByTeamId(t.getId());
                     List<String> students = members.stream()
@@ -220,8 +227,8 @@ public class SectionService {
                             .map(u -> u.getFirstName() + " " + u.getLastName())
                             .sorted()
                             .toList();
-                    List<String> instructors = members.stream()
-                            .filter(u -> u.getRole() == UserRole.INSTRUCTOR)
+                    // Instructors are in team_instructors join table, not users.team_id
+                    List<String> instructors = t.getInstructors().stream()
                             .map(u -> u.getFirstName() + " " + u.getLastName())
                             .sorted()
                             .toList();
@@ -230,8 +237,6 @@ public class SectionService {
                 .toList();
 
         List<UserEntity> sectionInstructors = userRepository.findByRoleAndSectionId(UserRole.INSTRUCTOR, id);
-        Set<Long> assignedInstructorIds = new HashSet<>();
-        for (UserEntity u : sectionInstructors) assignedInstructorIds.add(u.getId());
 
         List<String> studentsNotOnTeam = userRepository
                 .findByRoleAndTeamIdIsNull(UserRole.STUDENT)
@@ -240,10 +245,9 @@ public class SectionService {
                 .sorted()
                 .toList();
 
-        List<String> instructorsNotOnTeam = userRepository
-                .findByRoleAndTeamIdIsNull(UserRole.INSTRUCTOR)
-                .stream()
-                .filter(u -> !assignedInstructorIds.contains(u.getId()))
+        // Instructors not on any team = section instructors minus those in team_instructors
+        List<String> instructorsNotOnTeam = sectionInstructors.stream()
+                .filter(u -> !instructorIdsOnTeams.contains(u.getId()))
                 .map(u -> u.getFirstName() + " " + u.getLastName())
                 .sorted()
                 .toList();

@@ -40,15 +40,10 @@ class SectionControllerIntegrationTest {
     @Autowired SectionRepository sectionRepository;
     @Autowired TeamRepository teamRepository;
     @Autowired TestJwtHelper jwtHelper;
-
-    @Autowired
-    UserRepository userRepository;
-
-    @Autowired
-    RubricRepository rubricRepository;
-
-    @Autowired
-    ActiveWeekRepository activeWeekRepository;
+    @Autowired UserRepository userRepository;
+    @Autowired RubricRepository rubricRepository;
+    @Autowired ActiveWeekRepository activeWeekRepository;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     MockMvc mockMvc;
 
@@ -58,6 +53,7 @@ class SectionControllerIntegrationTest {
     void setUp() {
         mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
         activeWeekRepository.deleteAll();
+        jdbcTemplate.execute("DELETE FROM team_instructors");
         userRepository.deleteAll();
         teamRepository.deleteAll();
         sectionRepository.deleteAll();
@@ -122,14 +118,19 @@ class SectionControllerIntegrationTest {
     }
 
     /**
-     * Simulates the effect of UC-19 (Admin assigns instructor to team) by
-     * directly setting teamId on the instructor entity. This helper is
-     * intentionally endpoint-agnostic so these tests remain valid regardless
-     * of how Angel's UC-19 endpoint is shaped.
+     * Simulates UC-19: assigns an instructor to a team via the team_instructors
+     * join table. Uses JdbcTemplate directly to avoid lazy-load outside a session.
      */
     private void assignInstructorToTeam(Long instructorId, Long teamId) {
+        jdbcTemplate.update(
+            "INSERT INTO team_instructors (team_id, instructor_id) VALUES (?, ?)",
+            teamId, instructorId
+        );
+    }
+
+    private void assignInstructorToSection(Long instructorId, Long sectionId) {
         UserEntity instructor = userRepository.findById(instructorId).orElseThrow();
-        instructor.setTeamId(teamId);
+        instructor.setSectionId(sectionId);
         userRepository.save(instructor);
     }
 
@@ -817,6 +818,7 @@ class SectionControllerIntegrationTest {
         SectionEntity saved  = createSection("2025-2026");
         Long teamId          = createTeamAndReturnId("Team Alpha", "2025-2026");
         Long drSmithId       = createInstructor("Dr. Smith", "smith@tcu.edu");
+        assignInstructorToSection(drSmithId, saved.getId());
 
         // Simulates UC-19: Admin assigns Dr. Smith to a team
         assignInstructorToTeam(drSmithId, teamId);
@@ -922,8 +924,10 @@ class SectionControllerIntegrationTest {
     @Test
     void findSectionById_unassignedInstructors_appearsInInstructorsNotOnTeam() throws Exception {
         SectionEntity saved = createSection("2025-2026");
-        createInstructor("Dr. Smith", "smith@tcu.edu");
-        createInstructor("Dr. Jones", "jones@tcu.edu");
+        Long drSmithId = createInstructor("Dr. Smith", "smith@tcu.edu");
+        Long drJonesId = createInstructor("Dr. Jones", "jones@tcu.edu");
+        assignInstructorToSection(drSmithId, saved.getId());
+        assignInstructorToSection(drJonesId, saved.getId());
 
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
                 .andExpect(status().isOk())
@@ -935,9 +939,12 @@ class SectionControllerIntegrationTest {
     @Test
     void findSectionById_instructorsNotOnTeamSortedAlphabetically() throws Exception {
         SectionEntity saved = createSection("2025-2026");
-        createInstructor("Dr. Zhang", "zhang@tcu.edu");
-        createInstructor("Dr. Adams", "adams@tcu.edu");
-        createInstructor("Dr. Miller", "miller@tcu.edu");
+        Long zhangId  = createInstructor("Dr. Zhang",  "zhang@tcu.edu");
+        Long adamsId  = createInstructor("Dr. Adams",  "adams@tcu.edu");
+        Long millerId = createInstructor("Dr. Miller", "miller@tcu.edu");
+        assignInstructorToSection(zhangId,  saved.getId());
+        assignInstructorToSection(adamsId,  saved.getId());
+        assignInstructorToSection(millerId, saved.getId());
 
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
                 .andExpect(status().isOk())
@@ -952,7 +959,9 @@ class SectionControllerIntegrationTest {
         SectionEntity saved = createSection("2025-2026");
         Long teamId      = createTeamAndReturnId("Team Alpha", "2025-2026");
         Long drSmithId   = createInstructor("Dr. Smith", "smith@tcu.edu");
-        createInstructor("Dr. Jones", "jones@tcu.edu");
+        Long drJonesId   = createInstructor("Dr. Jones", "jones@tcu.edu");
+        assignInstructorToSection(drSmithId, saved.getId());
+        assignInstructorToSection(drJonesId, saved.getId());
 
         // Simulates UC-19: Admin assigns Dr. Smith to a team
         assignInstructorToTeam(drSmithId, teamId);
@@ -967,7 +976,8 @@ class SectionControllerIntegrationTest {
     void findSectionById_studentsNotIncludedInInstructorsNotOnTeam() throws Exception {
         SectionEntity saved = createSection("2025-2026");
         createStudent("Test Student A", "alice@tcu.edu");
-        createInstructor("Dr. Smith", "smith@tcu.edu");
+        Long drSmithId = createInstructor("Dr. Smith", "smith@tcu.edu");
+        assignInstructorToSection(drSmithId, saved.getId());
 
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
                 .andExpect(status().isOk())
@@ -1281,6 +1291,7 @@ class SectionControllerIntegrationTest {
         SectionEntity saved = createSection("2025-2026");
         Long teamId         = createTeamAndReturnId("Team Alpha", "2025-2026");
         Long drSmithId      = createInstructor("Dr. Smith", "smith@tcu.edu");
+        assignInstructorToSection(drSmithId, saved.getId());
 
         // Before UC-19: Dr. Smith appears in instructorsNotOnTeam, not in team
         mockMvc.perform(get("/api/v1/sections/{id}", saved.getId()))
@@ -1304,7 +1315,9 @@ class SectionControllerIntegrationTest {
         SectionEntity saved = createSection("2025-2026");
         Long teamId         = createTeamAndReturnId("Team Alpha", "2025-2026");
         Long drSmithId      = createInstructor("Dr. Smith", "smith@tcu.edu");
-        createInstructor("Dr. Jones", "jones@tcu.edu");
+        Long drJonesId      = createInstructor("Dr. Jones", "jones@tcu.edu");
+        assignInstructorToSection(drSmithId, saved.getId());
+        assignInstructorToSection(drJonesId, saved.getId());
 
         // UC-19 assigns only Dr. Smith
         assignInstructorToTeam(drSmithId, teamId);
@@ -1323,6 +1336,7 @@ class SectionControllerIntegrationTest {
         Long teamId         = createTeamAndReturnId("Team Alpha", "2025-2026");
         Long aliceId        = createStudentInSection("Test Student A", "alice@tcu.edu", saved.getId());
         Long drSmithId      = createInstructor("Dr. Smith", "smith@tcu.edu");
+        assignInstructorToSection(drSmithId, saved.getId());
 
         mockMvc.perform(post("/api/v1/teams/" + teamId + "/students")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -1343,6 +1357,7 @@ class SectionControllerIntegrationTest {
         SectionEntity saved = createSection("2025-2026");
         Long teamId         = createTeamAndReturnId("Team Alpha", "2025-2026");
         Long drSmithId      = createInstructor("Dr. Smith", "smith@tcu.edu");
+        assignInstructorToSection(drSmithId, saved.getId());
 
         assignInstructorToTeam(drSmithId, teamId); // UC-19
 
