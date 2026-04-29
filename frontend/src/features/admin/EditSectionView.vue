@@ -270,16 +270,19 @@ const stepLabels = ['Details', 'Rubric', 'Criteria', 'Confirm']
             <div
               v-for="i in instructors"
               :key="i.id"
-              style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--surface-2)"
+              style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;transition:background .12s"
+              :style="selectedInstructorIds.includes(i.id) ? 'background:var(--surface-2)' : ''"
+              @click="selectedInstructorIds.includes(i.id) ? selectedInstructorIds.splice(selectedInstructorIds.indexOf(i.id),1) : selectedInstructorIds.push(i.id)"
             >
               <input
                 type="checkbox"
                 :id="'instr-' + i.id"
                 :value="i.id"
                 v-model="selectedInstructorIds"
-                style="accent-color:var(--primary)"
+                style="width:16px;height:16px;flex-shrink:0;padding:0;border:none;background:transparent;accent-color:var(--purple)"
+                @click.stop
               />
-              <label :for="'instr-' + i.id" style="cursor:pointer;margin:0">
+              <label :for="'instr-' + i.id" style="cursor:pointer;margin:0;text-transform:none;font-weight:500;font-size:.875rem;color:var(--text);letter-spacing:normal">
                 {{ i.firstName }} {{ i.lastName }}
               </label>
             </div>

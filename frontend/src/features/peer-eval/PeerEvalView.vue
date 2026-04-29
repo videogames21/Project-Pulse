@@ -88,7 +88,7 @@ onMounted(async () => {
         const rubricRes = await sectionsApi.getRubricBySectionName(section)
         criteria.value  = rubricRes.data?.criteria ?? []
       } catch {
-        loadError.value = 'Could not load rubric for this section. Contact your admin.'
+        loadError.value = 'No rubric has been assigned to this section yet.'
       }
     }
 
@@ -182,7 +182,7 @@ function startEditing() {
     </div>
 
     <!-- Rubric load error -->
-    <div v-else-if="loadError" class="alert alert-error">{{ loadError }}</div>
+    <div v-else-if="loadError" class="alert alert-info">{{ loadError }}</div>
 
     <!-- Submitted banner -->
     <div v-else-if="evalStore.submitted">
